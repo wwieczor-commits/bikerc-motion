@@ -38,6 +38,17 @@ Po zakończeniu pomiaru aktywuje się przycisk **📄 Raport PDF** (karta „Eks
 
 Biblioteki: `jspdf@2.5.2` z CDN (jsDelivr), fallback lokalny `assets/vendor/jspdf.umd.min.js`; czcionki Inter i Archivo (podzbiór z polskimi znakami, base64) w `assets/vendor/report-fonts.js`. Przykład: `sample/przykladowy-raport.pdf` (pomiar testowy z nagrania przysiadu, nie kolarstwa).
 
+## Trener głosowy (w tle)
+
+Aplikacja mówi po polsku (Web Speech API, głos pl-PL, a gdy go brak – dowolny dostępny), więc nie trzeba patrzeć w ekran:
+wykrycie / utrata sylwetki („Nie widzę całej sylwetki, odsuń się”), odliczanie 3-2-1 przed pomiarem z kamery, odczyt co ~10 s
+(wyprost kolana w dolnym punkcie, kadencja), alerty (wyprost poza zakresem 140–155° albo duża różnica lewa–prawa),
+podsumowanie na końcu i „Raport PDF gotowy”. Ustawienia (przycisk 🎙): włącz/wyłącz, głośność, tempo, wybór głosu,
+szczegółowość *minimalna / normalna / gadatliwa*, „Test głosu”; przycisk 🔊 wycisza na podglądzie i w dolnym pasku.
+Ustawienia zapisują się w `localStorage` (`bikerc.coach.v1`). Moduł: `assets/coach.js` (ten sam plik jest w aplikacji „Rehabilitacja stopy”).
+Na iOS dźwięk odblokowuje pierwsze dotknięcie ekranu; w trybie cichym iPhone może nie odtwarzać mowy.
+Test: `python3 tests/test_coach.py http://localhost:8765/index.html` (speechSynthesis podmieniony na szpiega).
+
 ## Telefon (Android Chrome, iOS Safari)
 
 **Najważniejsze: kamera w przeglądarce działa tylko przez HTTPS** (albo `localhost`). Plik otwarty z dysku telefonu lub adres `http://192.168.x.x` NIE uruchomi kamery – aplikacja pokaże wtedy komunikat. Dlatego aplikację trzeba wystawić pod adresem `https://…` (patrz „Hosting”).

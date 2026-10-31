@@ -263,7 +263,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
       <div class="stage" id="stage">
         <video id="video" playsinline webkit-playsinline muted autoplay></video>
         <canvas id="view" width="1280" height="720"></canvas>
-        <div class="stbtns"><button class="rbtn" id="s-flip" hidden aria-label="Przełącz kamerę przód/tył" title="Przełącz kamerę">🔄</button><button class="rbtn" id="s-fs" hidden aria-label="Pełny ekran" title="Pełny ekran">⛶</button></div>
+        <div class="stbtns"><button class="rbtn" id="s-voicecfg" aria-label="Ustawienia trenera głosowego" title="Ustawienia trenera głosowego">🎙</button><button class="rbtn" id="s-voice" aria-label="Wycisz głos trenera" title="Głos trenera">🔊</button><button class="rbtn" id="s-flip" hidden aria-label="Przełącz kamerę przód/tył" title="Przełącz kamerę">🔄</button><button class="rbtn" id="s-fs" hidden aria-label="Pełny ekran" title="Pełny ekran">⛶</button></div>
         <button id="s-rec" hidden>● Start pomiaru</button>
         <div class="hud" id="hud">
           <span class="badge" id="b-fps" hidden>– FPS</span>
@@ -320,6 +320,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
         <button class="btn primary" id="btn-cam">Uruchom kamerę</button>
         <button class="btn" id="btn-film">🎬 Wczytaj film</button>
         <button class="btn" id="btn-snap" disabled>📷 Zrzut PNG</button>
+        <button class="btn" id="btn-voice-cfg">🎙 Trener głosowy</button>
         <span class="sep" style="width:1px;height:28px;margin:0 4px"></span>
         <label class="switch"><input type="checkbox" id="chk-mirror" checked> Lustro</label>
         <label class="switch"><input type="checkbox" id="chk-skel" checked> Szkielet</label>
@@ -418,6 +419,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
   <button class="btn dk" id="d-cam"><i>📷</i><span>Kamera</span></button>
   <button class="btn dk" id="d-film" aria-label="Wczytaj film z telefonu"><i>🎬</i><span>Film</span></button>
   <button class="btn primary dk wide" id="d-rec" disabled><i>●</i><span>Pomiar</span></button>
+  <button class="btn dk" id="d-voice" aria-label="Wycisz głos trenera"><i>🔊</i><span>Głos</span></button>
   <button class="btn dk" id="d-fs" aria-label="Pełny ekran" disabled><i>⛶</i><span>Pełny</span></button>
   <input type="file" id="file-video" class="vh" accept="video/*" tabindex="-1" aria-hidden="true">
   <input type="file" id="file-rec" class="vh" accept="video/*" capture="environment" tabindex="-1" aria-hidden="true">
@@ -434,6 +436,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="assets/coach.js"></script>
 <script type="module">
 const MP_VER='0.10.21';
 const JSPDF_VER='2.5.2';
@@ -670,10 +673,10 @@ async function beginTracking(){
   $('btn-cam').textContent=S.source==='file'?'Zatrzymaj film':'Zatrzymaj kamerę'; $('btn-cam').classList.remove('primary'); $('btn-cam').classList.add('danger');
   $('btn-snap').disabled=false; $('btn-rec').disabled=false;
   cancelAnimationFrame(S.raf); S.raf=requestAnimationFrame(loop);
-  requestWake(); syncDock();
+  requestWake(); syncDock(); coachTracking();
 }
 function stopAll(silent){
-  if(S.rec) stopRecording();
+  if(S.rec) stopRecording(); coachStopAll();
   S.running=false; cancelAnimationFrame(S.raf); fileTok++;
   S.stream?.getTracks().forEach(t=>t.stop()); S.stream=null;
   if(S.fileUrl){URL.revokeObjectURL(S.fileUrl);S.fileUrl=null}
@@ -918,7 +921,7 @@ function startRecording(){
   $('btn-rec').textContent='⏹ Zakończ pomiar'; $('btn-rec').classList.remove('primary'); $('btn-rec').classList.add('danger');
   $('b-rec').hidden=false; $('timer').classList.add('on'); disableExports(true);
   recTick=setInterval(()=>{if(!S.rec)return;const d=clk()-S.rec.t0;$('timer').textContent=mmss(d);$('b-rec').textContent='REC '+mmss(d);syncDock()},200);
-  syncDock(); toast('Pomiar rozpoczęty – statystyki min/max zostały zresetowane.');
+  syncDock(); toast('Pomiar rozpoczęty – statystyki min/max zostały zresetowane.'); coachRecStart();
 }
 function stopRecording(){
   if(!S.rec) return; clearInterval(recTick);
@@ -929,6 +932,7 @@ function stopRecording(){
   $('export-note').textContent=r.frames.length?`Pomiar${r.source==='file'?' z filmu':''}: ${r.frames.length} próbek, ${r.dur.toFixed(1)} s${r.source==='file'?' filmu':''}${r.client?' · '+r.client:''}.`:'Nie zarejestrowano żadnych próbek (brak sylwetki w kadrze).';
   if(r.frames.length) loadPdfLib().catch(()=>{});
   syncDock(); if(r.frames.length) toast(`Pomiar zakończony: ${r.frames.length} próbek. Możesz pobrać dane.`);
+  coachRecEnd(r);
 }
 function disableExports(d){['btn-pdf','btn-csv','btn-csv2','btn-json'].forEach(i=>$(i).disabled=d)}
 const KEYS=[]; for(const j of JOINTS) for(const s of ['L','R']) KEYS.push(`${j.id}_${s}`); KEYS.push('wrist_L','wrist_R');
@@ -1209,7 +1213,7 @@ async function makeReport(){
     }
     doc.setProperties({title:`Raport BikeRc${r.client?' – '+r.client:''}`,author:'Wojciech Wieczorek',subject:'Raport z pomiaru ruchu',creator:'BikeRc Motion'});
     deliver(doc.output('blob'),baseName(r)+'-raport.pdf','application/pdf');
-    toast(IS_MOBILE?'Raport PDF gotowy.':'Raport PDF zapisany.');
+    toast(IS_MOBILE?'Raport PDF gotowy.':'Raport PDF zapisany.'); Coach.say('Raport PDF gotowy.',{p:2,v:'minimal',key:'pdf',ttl:8000});
   }catch(e){console.error(e);toast('Nie udało się wygenerować raportu PDF: '+(e&&e.message||e),true,9000)}
   btn.disabled=false;btn.textContent=old;
 }
@@ -1245,10 +1249,10 @@ function syncDock(){
   const rec=!!S.rec,run=S.running,file=S.source==='file';
   const dc=$('d-cam'); dkSet(dc,run?'⏻':'📷',run?'Stop':'Kamera'); dc.classList.toggle('danger',run); dc.classList.toggle('primary',false);
   const dr=$('d-rec'); dr.disabled=$('btn-rec').disabled;
-  dkSet(dr,rec?'⏹':'●',rec?'Koniec '+$('timer').textContent:'Pomiar'); dr.classList.toggle('danger',rec); dr.classList.toggle('primary',!rec);
+  const cdn=!!(window.COACH&&COACH.cd); dkSet(dr,rec?'⏹':cdn?'✕':'●',rec?'Koniec '+$('timer').textContent:cdn?'Anuluj':'Pomiar'); dr.classList.toggle('danger',rec||cdn); dr.classList.toggle('primary',!rec&&!cdn);
   $('d-fs').disabled=!run; $('s-flip').hidden=!(run&&!file); $('s-fs').hidden=!run;
   $('bar-facing').hidden=run&&file;
-  const sr=$('s-rec'); sr.hidden=!(run&&isFs()); sr.textContent=rec?'⏹ Zakończ · '+$('timer').textContent:'● Start pomiaru'; sr.classList.toggle('danger',rec);
+  const sr=$('s-rec'); sr.hidden=!(run&&isFs()); sr.textContent=rec?'⏹ Zakończ · '+$('timer').textContent:(window.COACH&&COACH.cd)?'✕ Anuluj odliczanie':'● Start pomiaru'; sr.classList.toggle('danger',rec);
   syncVctl();
 }
 const pickFile=()=>{ if(S.rec){toast('Zakończ pomiar przed wczytaniem innego filmu.');return} $('file-video').click() };
@@ -1281,7 +1285,102 @@ if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostnam
     });
   });
 $('btn-cam').onclick=toggleCam; $('btn-empty-start').onclick=startCamera;
-$('btn-rec').onclick=()=>S.rec?stopRecording():startRecording();
+/* ---------- trener głosowy w tle (assets/coach.js) ---------- */
+const COACH={cd:null,state:'off',n:0,seenAt:0,startedAt:0,lostN:0,searchN:0,rec:null,band:'ok',bandN:0,lastEval:0,lastAsym:0};
+const BAND=[140,155];
+const f0=x=>Math.round(x);
+Coach.bindMute($('s-voice')); Coach.bindMute($('d-voice')); Coach.bindSettings($('s-voicecfg')); Coach.bindSettings($('btn-voice-cfg'));
+function coachCancelCd(){ if(COACH.cd){ COACH.cd.cancel(); COACH.cd=null; Coach.stop(); $('btn-rec').textContent='▶ Rozpocznij pomiar'; syncDock() } }
+function coachStartMeasure(){
+  if(!S.running||COACH.cd) return;
+  if(S.source==='camera'){        // odliczanie 3-2-1 (czas na wejście na rower)
+    $('btn-rec').textContent='✕ Anuluj odliczanie'; $('btn-rec').classList.remove('primary'); $('btn-rec').classList.add('danger');
+    Coach.stop();
+    COACH.cd=Coach.countdown({from:3,parent:$('stage'),go:'Start',onDone:()=>{ COACH.cd=null; if(S.running&&!S.rec) startRecording(); else syncDock() }});
+    syncDock();
+  } else startRecording();
+}
+function coachTracking(){
+  COACH.state='search'; COACH.n=S.nPose; COACH.seenAt=0; COACH.startedAt=performance.now(); COACH.lostN=0; COACH.searchN=0; COACH.searchAt=0;
+  Coach.resetCooldowns();
+  Coach.say(S.source==='file'?'Film wczytany. Analizuję ruch.':'Kamera uruchomiona. Ustaw się bokiem do kamery, tak aby cała sylwetka była w kadrze.',{p:1,v:'normal',key:'start',ttl:5000});
+}
+function coachStopAll(){ if(COACH.cd){COACH.cd.cancel();COACH.cd=null} COACH.state='off'; COACH.rec=null }
+function coachRecStart(){
+  Coach.resetCooldowns();
+  COACH.rec={next:10,silent:0}; COACH.band='ok'; COACH.bandN=0; COACH.lastAsym=0;
+  if(S.source==='file') Coach.say('Pomiar rozpoczęty.',{p:2,v:'normal',key:'recstart',ttl:3000});
+}
+function coachPose(now){
+  if(S.nPose!==COACH.n){ COACH.n=S.nPose; COACH.seenAt=now }
+  const present=COACH.seenAt>0&&now-COACH.seenAt<1800;
+  const best=S.visEma[S.autoSide], partial=present&&best<.5;
+  if(COACH.state==='search'){
+    if(present&&!partial){ COACH.state='ok'; Coach.say('Widzę sylwetkę. Możesz zaczynać pomiar.',{p:1,v:'normal',key:'seen',ttl:4000}) }
+    else if(now-COACH.startedAt>6000&&COACH.searchN<2&&(!COACH.searchAt||now-COACH.searchAt>14000)){ COACH.searchN++; COACH.searchAt=now; Coach.say('Nie widzę sylwetki. Wejdź w kadr, bokiem do kamery.',{p:2,v:'minimal',key:'lost',ttl:5000}) }
+  }else if(COACH.state==='ok'){
+    if(!present||(partial&&now-(COACH.partialSince||(COACH.partialSince=now))>2500)){ COACH.state='lost'; COACH.lostAt=now; COACH.lostN=1; Coach.say('Nie widzę całej sylwetki, odsuń się.',{p:2,v:'minimal',key:'lost',ttl:5000}) }
+    if(present&&!partial) COACH.partialSince=0;
+  }else if(COACH.state==='lost'){
+    if(present&&!partial){ COACH.state='ok'; COACH.partialSince=0; Coach.say('Sylwetka znowu widoczna.',{p:1,v:'normal',key:'seen',ttl:4000}) }
+    else if(COACH.lostN<3&&now-COACH.lostAt>15000*COACH.lostN){ COACH.lostN++; Coach.say('Nadal nie widzę całej sylwetki. Odsuń się albo ustaw kamerę bokiem.',{p:2,v:'minimal',key:'lost',ttl:5000}) }
+  }
+}
+function coachSidePeaks(){
+  const now=S.series.length?S.series[S.series.length-1].t:0, out={};
+  for(const sd of ['L','R']){
+    const key='knee_'+sd, pts=S.series.filter(p=>p.t>=now-20&&p.v[key]!=null);
+    if(pts.length<25) continue; const pk=findPeaks(pts,key); if(pk.length<3) continue;
+    const rec=pk.slice(-8); out[sd]=rec.reduce((a,p)=>a+p.v,0)/rec.length;
+  }
+  return out;
+}
+function coachRec(now){
+  const R=COACH.rec; if(!R||!S.rec) return;
+  const d=clk()-S.rec.t0, cad=S.cad;
+  // ostrzeżenia o zakresie wyprostu kolana (orientacyjnie 140–155°) – po ~2 s utrzymania się odchylenia
+  if(cad&&d>=6&&now-COACH.lastEval>=250){
+    COACH.lastEval=now; const st=cad.peak<BAND[0]?'low':cad.peak>BAND[1]?'high':'ok';
+    if(st===COACH.band) COACH.bandN=0; else if(++COACH.bandN>=8){
+      const prev=COACH.band; COACH.band=st; COACH.bandN=0;
+      if(st==='low') Coach.say(`Wyprost kolana tylko ${Coach.pl.deg(cad.peak)} – poniżej orientacyjnego zakresu ${BAND[0]} do ${BAND[1]}. Siodło może być za nisko.`,{p:2,v:'minimal',key:'band',cd:25000,ttl:6000});
+      else if(st==='high') Coach.say(`Wyprost kolana ${Coach.pl.deg(cad.peak)} – powyżej orientacyjnego zakresu ${BAND[0]} do ${BAND[1]}. Siodło może być za wysoko.`,{p:2,v:'minimal',key:'band',cd:25000,ttl:6000});
+      else if(prev!=='ok') Coach.say('Wyprost kolana wrócił do zakresu.',{p:1,v:'chatty',key:'band',ttl:5000});
+    }
+  }
+  // asymetria lewa–prawa
+  if(d>=12&&now-COACH.lastAsym>5000){
+    COACH.lastAsym=now; const pk=coachSidePeaks();
+    if(pk.L!=null&&pk.R!=null&&Math.abs(pk.L-pk.R)>=8) Coach.say(`Duża różnica między stronami: lewa ${f0(pk.L)}, prawa ${f0(pk.R)} stopni.`,{p:2,v:'minimal',key:'asym',cd:30000,ttl:6000});
+  }
+  // odczyty co ok. 10 s
+  if(d>=R.next){
+    R.next=d+10;
+    if(cad){
+      const inb=cad.peak>=BAND[0]&&cad.peak<=BAND[1];
+      Coach.say(`Wyprost kolana w dolnym punkcie: ${Coach.pl.deg(cad.peak)}. Kadencja: ${Coach.pl.rpm(cad.rpm)}.${inb?' W zakresie.':''}`,{p:1,v:'normal',key:'readout',ttl:5000});
+    } else if(d>=20) Coach.say('Nie wykrywam regularnych obrotów. Pedałuj równomiernie, bokiem do kamery.',{p:1,v:'chatty',key:'nocad',cd:30000,ttl:5000});
+  }
+}
+function coachRecEnd(r){
+  COACH.rec=null;
+  if(!r.frames.length){ Coach.say('Koniec pomiaru. Nie zarejestrowano próbek – sprawdź, czy sylwetka jest w kadrze.',{p:3,v:'minimal',key:'recend',ttl:8000}); return }
+  const main=S.side==='L'||S.side==='R'?S.side:S.autoSide, kn=statOf('knee_'+main,r.stats);
+  const cyc={L:cycleSummary(r.frames,'L'),R:cycleSummary(r.frames,'R')}, kc=cyc[main];
+  const parts=['Koniec pomiaru.'];
+  if(kn) parts.push(`Maksymalny wyprost kolana: ${Coach.pl.deg(kn.max)}.`);
+  if(kc) parts.push(`Średni szczyt ${f0(kc.peak)}, kadencja ${Coach.pl.rpm(kc.rpm)}.`);
+  const find=[];
+  if(kc){ if(kc.peak<BAND[0]) find.push(`Wyprost kolana poniżej orientacyjnego zakresu ${BAND[0]} do ${BAND[1]}.`); else if(kc.peak>BAND[1]) find.push(`Wyprost kolana powyżej orientacyjnego zakresu ${BAND[0]} do ${BAND[1]}.`); else find.push('Wyprost kolana mieści się w zakresie.') }
+  else find.push('Nie wykryto powtarzalnych cykli, więc kadencja nie została oszacowana.');
+  if(cyc.L&&cyc.R&&Math.abs(cyc.L.peak-cyc.R.peak)>=5) find.push(`Zauważalna asymetria: lewa ${f0(cyc.L.peak)}, prawa ${f0(cyc.R.peak)} stopni.`);
+  if(r.frames.length<150) find.push('Pomiar był krótki, wyniki mogą być mało reprezentatywne.');
+  parts.push(...find, 'Możesz teraz wygenerować raport PDF.');
+  Coach.say(parts.join(' '),{p:3,v:'minimal',key:'recend',ttl:20000});
+}
+setInterval(()=>{ if(document.hidden||!S.running) return; if(S.source==='file'&&(video.paused||S.userPaused)) return; const now=performance.now(); coachPose(now); coachRec(now) },250);
+
+$('btn-rec').onclick=()=>S.rec?stopRecording():COACH.cd?coachCancelCd():coachStartMeasure();
 $('btn-snap').onclick=snapshot; $('btn-pdf').onclick=makeReport; $('btn-csv').onclick=exportCSV; $('btn-csv2').onclick=exportCSVCompat; $('btn-json').onclick=exportJSON;
 $('btn-reset').onclick=()=>{resetStats();S.series=[];toast('Zresetowano min/max.')};
 ['file-video','file-rec'].forEach(id=>$(id).onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)startFile(f);e.target.value=''});
