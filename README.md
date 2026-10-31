@@ -43,9 +43,17 @@ Biblioteki: `jspdf@2.5.2` z CDN (jsDelivr), fallback lokalny `assets/vendor/jspd
 - Start kamery wyłącznie z dotknięcia przycisku (wymóg iOS). Domyślnie **tylna** kamera na telefonie (trener filmuje zawodnika), przednia na komputerze; przełącznik 📷 Tylna / 🤳 Przednia oraz przycisk 🔄.
 - Kolejność prób `getUserMedia`: wybrane urządzenie → `facingMode` + 1280×720 → 640×480 → samo `facingMode` → dowolna kamera (obsługa `OverconstrainedError`).
 - Wydajność: model Lite, GPU z awaryjnym CPU, analiza ograniczana do ~25 kl./s (a przy wolnym telefonie ~12), płótno max 960 px, DPR ≤ 1,5, pauza po zejściu do tła, Wake Lock (ekran nie gaśnie).
-- Interfejs: wideo na górze, stały dolny pasek (Kamera / Start pomiaru / przełącz / pełny ekran), zwijane sekcje, pełny ekran (z awaryjnym „pełnym ekranem CSS” na iPhonie), układ pionowy i poziomy.
+- Interfejs: wideo na górze, stały dolny pasek (📷 Kamera / 🎬 Film / ● Pomiar / ⛶ Pełny; przełączanie przód/tył jest na obrazie), zwijane sekcje, pełny ekran (z awaryjnym „pełnym ekranem CSS” na iPhonie), układ pionowy i poziomy.
 - PDF / CSV / JSON / PNG na telefonie: arkusz „Udostępnij / Otwórz / Pobierz” (Web Share API z plikiem, otwarcie blobu w nowej karcie, pobranie).
 - PWA: `manifest.webmanifest` + `sw.js` – „Dodaj do ekranu głównego” (Android: przycisk ⬇ Zainstaluj; iOS: Udostępnij → Dodaj do ekranu początkowego). Offline działa powłoka aplikacji; model i biblioteki z CDN są cache’owane po pierwszym użyciu (na iOS pierwsze uruchomienie wymaga internetu).
+
+### Film z telefonu (analiza nagrania)
+
+- Przycisk **🎬 Film** w dolnym pasku, **„Wczytaj film z telefonu”** na ekranie startowym i **🎬 Wczytaj film** w ustawieniach (komputer). `<input type=file accept="video/*">` bez `capture` – telefon proponuje galerię/pliki. Link „Nagraj nowy film aparatem telefonu” używa drugiego inputa z `capture`.
+- Odtwarzacz (tylko dla filmu): ▶/⏸, krok o klatkę ⏮ ⏭ (1/30 s), suwak przewijania, prędkość 0,25× / 0,5× / 1×.
+- Pomiar, CSV/JSON i PDF działają na filmie; znaczniki czasu to **czas filmu** (nie zegar), więc wolne odtwarzanie nie zniekształca wyników. Koniec filmu kończy pomiar automatycznie.
+- Format: MP4 (H.264) działa wszędzie. Filmy .mov/HEVC z iPhone’a mogą nie zadziałać w Chrome – aplikacja pokaże polski komunikat (iPhone: Ustawienia → Aparat → Formaty → „Najbardziej zgodne”).
+- Aktualizacje PWA: `sw.js` (v4) pobiera `index.html` najpierw z sieci (z cache tylko offline), a nowa wersja przeładowuje aplikację automatycznie.
 
 ### Hosting (HTTPS)
 

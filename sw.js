@@ -1,5 +1,5 @@
 /* BikeRc Motion – service worker: powłoka aplikacji offline + cache bibliotek i modelu */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `bikerc-shell-${VERSION}`;
 const LIBS = 'bikerc-libs-v1';
 const SHELL_FILES = [
@@ -12,7 +12,7 @@ self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(SHELL);
     // pojedyncze błędy (np. brak pliku) nie blokują instalacji
-    await Promise.all(SHELL_FILES.map(u => c.add(u).catch(() => {})));
+    await Promise.all(SHELL_FILES.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => {})));
     // fonty z assets/fonts.css
     try {
       const css = await (await fetch('./assets/fonts.css')).text();
@@ -48,15 +48,32 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin !== self.location.origin) return;
-  // własne pliki: stale-while-revalidate, nawigacja → index.html offline
+  // index.html / nawigacja: NETWORK-FIRST (nowa wersja trafia do użytkownika od razu),
+  // przy braku sieci lub bardzo wolnym łączu (>4 s) – kopia z cache
+  const isDoc = req.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname) || /\/(sw\.js|manifest\.webmanifest)$/.test(url.pathname);
+  if (isDoc) {
+    e.respondWith((async () => {
+      const c = await caches.open(SHELL);
+      const key = req.mode === 'navigate' || /\/$/.test(url.pathname) ? './index.html' : req;
+      const net = fetch(req.mode === 'navigate' ? new Request(req.url, { cache: 'no-cache' }) : req, req.mode === 'navigate' ? undefined : { cache: 'no-cache' })
+        .then(res => { if (res && res.ok) c.put(key, res.clone()).catch(() => {}); return res }).catch(() => null);
+      const timeout = new Promise(r => setTimeout(() => r(null), 4000));
+      const res = await Promise.race([net, timeout]);
+      if (res) return res;
+      const hit = await c.match(key, { ignoreSearch: true });
+      if (hit) { e.waitUntil(net); return hit }
+      const late = await net; if (late) return late;
+      const idx = await c.match('./index.html'); return idx || Response.error();
+    })());
+    return;
+  }
+  // pozostałe własne pliki: stale-while-revalidate
   e.respondWith((async () => {
     const c = await caches.open(SHELL);
-    const hit = await c.match(req, { ignoreSearch: req.mode === 'navigate' });
-    const net = fetch(req).then(res => { if (res && res.ok) c.put(req.mode === 'navigate' ? './index.html' : req, res.clone()).catch(() => {}); return res }).catch(() => null);
+    const hit = await c.match(req);
+    const net = fetch(req).then(res => { if (res && res.ok) c.put(req, res.clone()).catch(() => {}); return res }).catch(() => null);
     if (hit) { e.waitUntil(net); return hit }
     const res = await net;
-    if (res) return res;
-    if (req.mode === 'navigate') { const idx = await c.match('./index.html'); if (idx) return idx }
-    return Response.error();
+    return res || Response.error();
   })());
 });

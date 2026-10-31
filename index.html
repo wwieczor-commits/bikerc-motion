@@ -41,8 +41,6 @@ h1,h2,h3{font-family:var(--head);margin:0}
 .pill.ok i{background:var(--teal);animation:pulse 2s ease-out infinite}
 .pill.warn i{background:var(--right)} .pill.err i{background:var(--danger)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,196,182,.6)}70%{box-shadow:0 0 0 8px rgba(46,196,182,0)}100%{box-shadow:0 0 0 0 rgba(46,196,182,0)}}
-.toplink{font-size:14px;font-weight:600;border:1px solid var(--line);border-radius:var(--r);padding:7px 14px;color:var(--text)}
-.toplink:hover{border-color:var(--teal);color:var(--teal)}
 
 main{max-width:1500px;margin:0 auto;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start}
 .col{display:flex;flex-direction:column;gap:24px;min-width:0}
@@ -147,7 +145,7 @@ td.big{font-weight:700}
 footer{max-width:1500px;margin:0 auto;padding:8px 24px 40px;color:var(--dim);font-size:12px;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
 
 @media (max-width:1100px){main{grid-template-columns:1fr}}
-@media (max-width:700px){.top{padding:10px 14px;gap:10px}.top .tag{display:none}.toplink{display:none}main{padding:14px;gap:14px}.col{gap:14px}.card{padding:14px}.timer{font-size:44px}}
+@media (max-width:700px){.top{padding:10px 14px;gap:10px}.top .tag{display:none}main{padding:14px;gap:14px}.col{gap:14px}.card{padding:14px}.timer{font-size:44px}}
 /* ---------- mobile / PWA ---------- */
 html{-webkit-text-size-adjust:100%;overflow-x:hidden}
 body{overflow-x:hidden;overscroll-behavior-y:none}
@@ -170,6 +168,23 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
 .fold:not([open])>summary h2{margin-bottom:0}
 #c-set>summary{display:none}
 #dock{display:none}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none;left:0;top:0}
+.empty .choices{display:flex;flex-direction:column;gap:10px;align-items:center;width:min(340px,100%)}
+.empty .choices .btn{width:100%}
+.empty .or{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.12em;margin:-2px 0}
+.empty .lnk{appearance:none;background:none;border:0;color:var(--teal);font:600 14px var(--body);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:8px;min-height:36px}
+.vctl{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);display:flex;flex-direction:column;gap:8px}
+.vctl .vrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vctl .btn{min-width:46px;padding:6px 10px;font-weight:800}
+.vctl .vt{font:700 13px var(--body);font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto;white-space:nowrap}
+.vctl .seg button{padding:8px 10px;min-width:44px}
+.vctl input[type=range]{width:100%;height:36px;margin:0;accent-color:var(--teal);touch-action:pan-y}
+.vctl .vname{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dock .dk{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.1;padding:6px 4px;font-size:12px;font-weight:800}
+#dock .dk i{font-style:normal;font-size:20px;line-height:1}
+#dock .dk span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dock .dk.wide{flex:1.35 1 0}
+
 #sheet{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
 #sheet .panel{width:min(520px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
 #sheet h3{font-size:20px;font-weight:900;font-style:italic}
@@ -182,7 +197,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
 @media (max-width:900px), (max-height:520px) and (orientation:landscape){
   body{font-size:16px;padding-bottom:calc(86px + env(safe-area-inset-bottom))}
   .top{position:static;padding:10px 14px;padding-left:max(14px,env(safe-area-inset-left));gap:10px}
-  .top .tag,.toplink{display:none}
+  .top .tag,
   .top img{height:26px}
   main{grid-template-columns:minmax(0,1fr);padding:10px;padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right));gap:12px}
   .col{display:contents}
@@ -215,15 +230,17 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
   #c-measure .stack{display:none}
   #main-chart{height:220px}
   #dock{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right));background:rgba(35,34,34,.96);border-top:1px solid #3a3838;backdrop-filter:blur(10px)}
-  #dock .btn{min-height:54px;padding:8px 10px;font-weight:800}
-  #dock .grow2{flex:2 1 0}#dock .grow1{flex:1 1 0}#dock .ico{flex:0 0 54px;padding:0;font-size:22px}
+  #dock .btn{min-height:58px;padding:6px 4px}
+  .empty .choices .btn{min-height:50px}
+  .empty .big{font-size:16px}
+  .vctl .btn{min-height:46px}
   #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
   footer{padding:8px 14px calc(24px)}
 }
 @media (max-height:520px) and (orientation:landscape){
   .top{display:none}
   .stage{max-height:calc(100dvh - 90px);min-height:200px;aspect-ratio:16/9}
-  #dock .btn{min-height:44px}
+  #dock .btn{min-height:48px}
   body{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -236,7 +253,6 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
   <span class="sp"></span>
   <span class="pill" id="pill-model"><i></i><span id="pill-model-t">Model: ładowanie…</span></span>
   <button class="btn install" id="btn-install" hidden>⬇ Zainstaluj</button>
-  <a class="toplink" href="https://bikerc-5a1dd.web.app/pomiary" target="_blank" rel="noopener">System pomiarów ↗</a>
 </header>
 
 <main>
@@ -258,9 +274,28 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
           <div class="scan"></div>
           <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjEyNCAyMjYgNjA2IDE1NiIgd2lkdGg9IjYwNiIgaGVpZ2h0PSIxNTYiPjx0aXRsZT5CaWtlUmM8L3RpdGxlPjxwYXRoIGZpbGw9IiMyRUM0QjYiIGZpbGwtcnVsZT0ibm9uemVybyIgZD0iTSAxNjMuNTU0Njg4IDM1MS4yMDMxMjUgTCAxNzEuNjE3MTg4IDMxMy4yODkwNjIgTCAxOTUuNTQyOTY5IDMxMy4yODkwNjIgQyAyMDkuOTU3MDMxIDMxMy4yODkwNjIgMjE5LjMwMDc4MSAzMTUuODU5Mzc1IDIxNS43ODEyNSAzMzIuMjQ2MDk0IEMgMjEyLjI5Mjk2OSAzNDguNjM2NzE5IDIwMS44OTQ1MzEgMzUxLjIwMzEyNSAxODcuNDQ1MzEyIDM1MS4yMDMxMjUgWiBNIDE3Ni42ODM1OTQgMjg5LjU5NzY1NiBMIDE4My44MjQyMTkgMjU2LjAyNzM0NCBMIDIwNy43MTg3NSAyNTYuMDI3MzQ0IEMgMjIwLjU4NTkzOCAyNTYuMDI3MzQ0IDIyNi41NDI5NjkgMjYxLjM1OTM3NSAyMjQuMTA1NDY5IDI3Mi44MTI1IEMgMjIxLjY3MTg3NSAyODQuMjY1NjI1IDIxMy40MTAxNTYgMjg5LjU5NzY1NiAyMDAuNTc4MTI1IDI4OS41OTc2NTYgWiBNIDE4MS44MTY0MDYgMzc0Ljg5ODQzOCBDIDIwMy40MDYyNSAzNzYuNDc2NTYyIDI0MS4xMjEwOTQgMzY2LjIxMDkzOCAyNDcuMTQ0NTMxIDMzNy45NzI2NTYgQyAyNTEuNTg1OTM4IDMxNy4wNDI5NjkgMjQwLjgyNDIxOSAzMDQuNjAxNTYyIDIyMy42Nzk2ODggMzAwLjg1MTU2MiBMIDIyMy43NDYwOTQgMzAwLjQ1NzAzMSBDIDIzOC45NDkyMTkgMjk1LjcxODc1IDI1Mi4xMTMyODEgMjg0Ljg1NTQ2OSAyNTUuNDM3NSAyNjkuMjU3ODEyIEMgMjYxLjM5NDUzMSAyNDEuNDE3OTY5IDIzNy42MDE1NjIgMjMwLjc1MzkwNiAyMTEuODAwNzgxIDIzMi4zMzIwMzEgTCAxNTguMjg5MDYyIDIzMi4zMzIwMzEgTCAxMjcuOTE0MDYyIDM3NC44OTg0MzggWiBNIDI3MS43MTg3NSAyNzUuNzczNDM4IEwgMjUwLjU5Mzc1IDM3NC44OTg0MzggTCAyODAuMjEwOTM4IDM3NC44OTg0MzggTCAzMDEuMzA0Njg4IDI3NS43NzM0MzggWiBNIDI3OS45ODA0NjkgMjMyLjMzMjAzMSBMIDI3NC41NTA3ODEgMjU3LjgwNDY4OCBMIDMwNi4xNDQ1MzEgMjU3LjgwNDY4OCBMIDMxMS41MzkwNjIgMjMyLjMzMjAzMSBaIE0gMzU3LjgwNDY4OCAyMzIuMzMyMDMxIEwgMzI4LjIxODc1IDIzMi4zMzIwMzEgTCAyOTcuODQzNzUgMzc0Ljg5ODQzOCBMIDMyNy40NjA5MzggMzc0Ljg5ODQzOCBMIDMzOC45NDkyMTkgMzIwLjk5MjE4OCBMIDMzOS40MTAxNTYgMzIwLjU5NzY1NiBMIDM1Ny42NzE4NzUgMzc0Ljg5ODQzOCBMIDM5Mi4yMjY1NjIgMzc0Ljg5ODQzOCBMIDM2OC4wMDc4MTIgMzE4LjAzMTI1IEwgNDExLjQxNDA2MiAyNzQuNTg5ODQ0IEwgMzc4LjQzNzUgMjc0LjU4OTg0NCBMIDM0MC4zMjgxMjUgMzE2LjI1MzkwNiBMIDM0MC4wMzUxNTYgMzE1Ljg1OTM3NSBaIE0gNDk4Ljg4MjgxMiAzMzMuMjM0Mzc1IEMgNTAwLjI2MTcxOSAzMjYuNzE4NzUgNTAxLjYxMzI4MSAzMjAuMzk4NDM4IDUwMi4xNDA2MjUgMzE0LjI3NzM0NCBDIDUwMi42OTkyMTkgMzA3Ljk2MDkzOCA1MDIuNTY2NDA2IDMwMi4wMzUxNTYgNTAwLjk4ODI4MSAyOTYuNTA3ODEyIEMgNDk2LjQxNDA2MiAyNzkuMTI4OTA2IDQ4Mi4zNTkzNzUgMjcyLjgxMjUgNDYzLjgwMDc4MSAyNzIuODEyNSBDIDQzMy41ODk4NDQgMjcyLjgxMjUgNDExLjM0Mzc1IDI5NS43MTg3NSA0MDQuOTkyMTg4IDMyNS41MzEyNSBDIDM5Ny45MTQwNjIgMzU4LjcwNzAzMSA0MDcuNDU3MDMxIDM3Ny44NTkzNzUgNDQxLjQyMTg3NSAzNzcuODU5Mzc1IEMgNDY0LjUyMzQzOCAzNzcuODU5Mzc1IDQ4NS4zODY3MTkgMzY5Ljc2MTcxOSA0OTMuMTU2MjUgMzQ1LjI3NzM0NCBMIDQ2Ni41MzEyNSAzNDUuMjc3MzQ0IEMgNDYxLjgyNDIxOSAzNTQuMzYzMjgxIDQ1NS45MDIzNDQgMzU4LjExMzI4MSA0NDUuNjMyODEyIDM1OC4xMTMyODEgQyA0MzAuMzk4NDM4IDM1OC4xMTMyODEgNDMxLjE4NzUgMzQ2LjA3MDMxMiA0MzMuOTE3OTY5IDMzMy4yMzQzNzUgWiBNIDQzOC4xMjg5MDYgMzEzLjQ4ODI4MSBDIDQ0MC44MjgxMjUgMzAyLjYyODkwNiA0NDUuOTY0ODQ0IDI5Mi41NTg1OTQgNDU5LjU4NTkzOCAyOTIuNTU4NTk0IEMgNDc0IDI5Mi41NTg1OTQgNDc0LjgyNDIxOSAzMDIuNjI4OTA2IDQ3Mi41MTk1MzEgMzEzLjQ4ODI4MSBaIE0gNTU1LjQ4MDQ2OSAyNTYuMDI3MzQ0IEwgNTgxLjE0ODQzOCAyNTYuMDI3MzQ0IEMgNTk0LjU0Mjk2OSAyNTYuMjI2NTYyIDYwMS4zMjAzMTIgMjYxLjUyMzQzOCA1OTguNjU2MjUgMjc0LjA5Mzc1IEMgNTk1Ljk1NzAzMSAyODYuNjY3OTY5IDU4Ni42NDQ1MzEgMjkzLjM0NzY1NiA1NzMuMTUyMzQ0IDI5My41NDY4NzUgTCA1NDcuNDgwNDY5IDI5My41NDY4NzUgWiBNIDU0Mi40NDUzMTIgMzE3LjIzODI4MSBMIDU3NC44MjgxMjUgMzE3LjIzODI4MSBDIDU4NC44MzU5MzggMzE3LjYzNjcxOSA1ODQuNDcyNjU2IDMyOC41MjczNDQgNTgzLjU4MjAzMSAzMzYuNDYwOTM4IEMgNTgyLjIzNDM3NSAzNDkuMzU5Mzc1IDU4MC44NTE1NjIgMzYyLjIyNjU2MiA1ODAuNzE4NzUgMzc0Ljg5ODQzOCBMIDYxNC40ODQzNzUgMzc0Ljg5ODQzOCBDIDYxMC40Mzc1IDM2NyA2MTIuODM5ODQ0IDM1MC4xNDg0MzggNjEzLjM5ODQzOCAzNDEuMDM1MTU2IEMgNjE1LjA0Njg3NSAzMjEuMTg3NSA2MTguMTQwNjI1IDMwNi43NzM0MzggNTk1LjE5OTIxOSAzMDQuMjA3MDMxIEwgNTk1LjI2NTYyNSAzMDMuODEyNSBDIDYxMy42Mjg5MDYgMzAwLjA2MjUgNjI4LjI3MzQzOCAyODcuODUxNTYyIDYzMi4yMjI2NTYgMjY5LjM5MDYyNSBDIDYzOC4zNzg5MDYgMjQwLjQyOTY4OCA2MTUuMDExNzE5IDIzMi41MzEyNSA1OTAuNTYyNSAyMzIuMzMyMDMxIEwgNTI5Ljk0MTQwNiAyMzIuMzMyMDMxIEwgNDk5LjU2NjQwNiAzNzQuODk4NDM4IEwgNTMwLjE3MTg3NSAzNzQuODk4NDM4IFogTSA3MTkuNDYwOTM4IDMxMC41MjczNDQgQyA3MjQuNjI4OTA2IDI4Ny4yMjY1NjIgNzA4LjkyOTY4OCAyNzIuODEyNSA2ODMuNjU2MjUgMjcyLjgxMjUgQyA2NTQuMjY1NjI1IDI3Mi44MTI1IDYzMy44NjMyODEgMjk5LjA3NDIxOSA2MjguMjY5NTMxIDMyNS4zMzU5MzggQyA2MjIuNjcxODc1IDM1MS41OTc2NTYgNjMxLjg4NjcxOSAzNzcuODU5Mzc1IDY2MS4zMDg1OTQgMzc3Ljg1OTM3NSBDIDY4OC41NTg1OTQgMzc3Ljg1OTM3NSA3MDcuMDg1OTM4IDM2NC4wMzkwNjIgNzEzLjQzNzUgMzM4Ljc2MTcxOSBMIDY4NC42MDkzNzUgMzM4Ljc2MTcxOSBDIDY4Mi42OTkyMTkgMzQ2Ljg1OTM3NSA2NzYuOTQxNDA2IDM1OC4xMTMyODEgNjY1LjQ4ODI4MSAzNTguMTEzMjgxIEMgNjUyLjg1MTU2MiAzNTguMTEzMjgxIDY1OC4wMTk1MzEgMzMzLjAzNTE1NiA2NTkuMTM2NzE5IDMyMy45NTMxMjUgQyA2NjEuMTc5Njg4IDMxNi4yNTM5MDYgNjY2LjQ0MTQwNiAyOTIuNTU4NTk0IDY3OS4wODIwMzEgMjkyLjU1ODU5NCBDIDY5MC41MzEyNSAyOTIuNTU4NTk0IDY5MS43ODUxNTYgMzAyLjQyOTY4OCA2OTAuMjM4MjgxIDMxMC41MjczNDQgWiBNIDcxOS40NjA5MzggMzEwLjUyNzM0NCAiPjwvcGF0aD48L3N2Zz4=" alt="BikeRc">
           <h1>Każdy ruch pod kontrolą.</h1>
-          <p>Uruchom kamerę, ustaw się bokiem i pokaż biodra, kolana oraz stopy. Szkielet i kąty stawów policzą się na żywo – obraz nie opuszcza Twojej przeglądarki.</p>
-          <button class="btn primary big" id="btn-empty-start">Uruchom kamerę</button>
+          <p>Uruchom kamerę albo wczytaj gotowy film z galerii telefonu – szkielet i kąty stawów policzą się od razu. Obraz nie opuszcza Twojej przeglądarki.</p>
+          <div class="choices">
+            <button class="btn primary big" id="btn-empty-start">📷 Uruchom kamerę</button>
+            <span class="or">lub</span>
+            <button class="btn big" id="btn-empty-film">🎬 Wczytaj film z telefonu</button>
+            <button class="lnk" id="btn-empty-rec" type="button">Nagraj nowy film aparatem telefonu</button>
+          </div>
         </div>
+      </div>
+
+      <div class="vctl" id="vctl" hidden aria-label="Odtwarzanie filmu">
+        <div class="vname" id="v-name"></div>
+        <div class="vrow">
+          <button class="btn primary" id="v-play" aria-label="Odtwarzaj / pauza">⏸</button>
+          <button class="btn" id="v-back" aria-label="Klatka wstecz" title="Klatka wstecz">⏮</button>
+          <button class="btn" id="v-fwd" aria-label="Klatka do przodu" title="Klatka do przodu">⏭</button>
+          <div class="seg" id="seg-speed" role="group" aria-label="Prędkość odtwarzania">
+            <button data-r="0.25" aria-pressed="false">0,25×</button><button data-r="0.5" aria-pressed="false">0,5×</button><button data-r="1" aria-pressed="true">1×</button>
+          </div>
+          <span class="vt" id="v-time">0:00 / 0:00</span>
+        </div>
+        <input type="range" id="v-seek" min="0" max="1000" value="0" step="1" aria-label="Przewijanie filmu">
       </div>
 
       <div class="bar" id="bar-facing">
@@ -282,8 +317,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
       </div>
       <div class="bar">
         <button class="btn primary" id="btn-cam">Uruchom kamerę</button>
-        <span id="lbl-file-wrap" style="display:contents"><label class="btn" for="file-video" id="lbl-file" style="cursor:pointer">Plik wideo…</label></span>
-        <input type="file" id="file-video" accept="video/*" hidden>
+        <button class="btn" id="btn-film">🎬 Wczytaj film</button>
         <button class="btn" id="btn-snap" disabled>📷 Zrzut PNG</button>
         <span class="sep" style="width:1px;height:28px;margin:0 4px"></span>
         <label class="switch"><input type="checkbox" id="chk-mirror" checked> Lustro</label>
@@ -380,10 +414,12 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
   <span>Pozy: MediaPipe PoseLandmarker · przetwarzanie lokalne w przeglądarce</span>
 </footer>
 <nav id="dock" aria-label="Sterowanie pomiarem">
-  <button class="btn grow1" id="d-cam">📷 Kamera</button>
-  <button class="btn primary grow2" id="d-rec" disabled>● Start pomiaru</button>
-  <button class="btn ico" id="d-flip" aria-label="Przełącz kamerę przód/tył">🔄</button>
-  <button class="btn ico" id="d-fs" aria-label="Pełny ekran" disabled>⛶</button>
+  <button class="btn dk" id="d-cam"><i>📷</i><span>Kamera</span></button>
+  <button class="btn dk" id="d-film" aria-label="Wczytaj film z telefonu"><i>🎬</i><span>Film</span></button>
+  <button class="btn primary dk wide" id="d-rec" disabled><i>●</i><span>Pomiar</span></button>
+  <button class="btn dk" id="d-fs" aria-label="Pełny ekran" disabled><i>⛶</i><span>Pełny</span></button>
+  <input type="file" id="file-video" class="vh" accept="video/*" tabindex="-1" aria-hidden="true">
+  <input type="file" id="file-rec" class="vh" accept="video/*" capture="environment" tabindex="-1" aria-hidden="true">
 </nav>
 <div id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
   <div class="panel">
@@ -438,7 +474,7 @@ const VIS_MIN=0.45;
 const S={lib:null,landmarker:null,modelName:'lite',delegate:'GPU',running:false,source:null,stream:null,fileUrl:null,
   side:'auto',autoSide:'R',visEma:{L:.5,R:.5},mirror:true,skel:true,labels:true,sel:'knee',win:10,
   series:[],stats:{},ema:{},lastSeen:{},t0:0,lastVT:-1,lastTs:0,fpsN:0,fpsT:0,fps:0,inferMs:0,nPose:0,lastPoseT:0,
-  rec:null,last:null,cad:null,raf:0,errCount:0,
+  mt:0,userPaused:false,rate:1,rec:null,last:null,cad:null,raf:0,errCount:0,
   facing:IS_MOBILE?'environment':'user',camFacing:null,permitted:false,wake:null,vw:0,vh:0,interval:0,lastInfer:0,lastLm:null,lastVals:null};
 const video=$('video'),canvas=$('view'),ctx=canvas.getContext('2d');
 
@@ -543,6 +579,7 @@ async function getStream(){
   throw last;
 }
 function syncFacingUI(){document.querySelectorAll('#seg-facing button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.f===S.facing))}
+const clk=()=>S.source==='file'?S.mt:performance.now()/1000; // czas pomiaru: dla filmu = czas filmu
 const effMirror=()=>$('chk-mirror').checked&&S.source==='camera'&&S.camFacing!=='environment';
 
 async function startCamera(){
@@ -573,31 +610,73 @@ async function setFacing(f,fromFlip){
   } else listCams();
 }
 const flipCamera=()=>setFacing(S.facing==='environment'?'user':'environment',true);
-function startFile(file){
-  stopAll(true);
-  S.fileUrl=URL.createObjectURL(file); S.source='file';
-  video.srcObject=null; video.src=S.fileUrl; video.loop=true; video.muted=true;
-  video.play().then(()=>beginTracking()).catch(e=>{toast('Nie można odtworzyć pliku wideo.',true);stopAll(true)});
+const FILE_ERR='Ta przeglądarka nie potrafi odczytać tego filmu (częsty problem: format .mov/HEVC z iPhone’a lub kodek spoza H.264). Wybierz film w formacie MP4 (H.264) albo nagraj nowy aparatem. iPhone: Ustawienia → Aparat → Formaty → „Najbardziej zgodne”.';
+let fileTok=0;
+async function startFile(file){
+  if(!file) return;
+  if(file.type&&!/^video\//.test(file.type)&&!/\.(mp4|m4v|mov|webm|mkv|3gp|avi)$/i.test(file.name||'')){toast('To nie jest plik wideo.',true);return}
+  stopAll(true); const tok=++fileTok;
+  S.fileUrl=URL.createObjectURL(file); S.source='file'; S.fileName=file.name||'film'; S.mt=0; S.userPaused=false;
+  setBusy(true); toast('Wczytuję film…',false,2500);
+  video.srcObject=null; video.muted=true; video.defaultMuted=true; video.playsInline=true; video.setAttribute('playsinline',''); video.setAttribute('webkit-playsinline','');
+  video.loop=true; video.preload='auto'; video.src=S.fileUrl;
+  const loaded=await new Promise(res=>{
+    let done=false; const fin=v=>{if(done)return;done=true;clearTimeout(to);video.onloadeddata=video.onerror=null;res(v)};
+    const to=setTimeout(()=>fin(video.readyState>=2),25000);
+    video.onloadeddata=()=>fin(true); video.onerror=()=>fin(false);
+    if(video.readyState>=2) fin(true);
+    try{video.load()}catch(e){}
+  });
+  if(tok!==fileTok) return;
+  if(!loaded||!video.videoWidth){ toast(FILE_ERR,true,14000); stopAll(true); setBusy(false); return }
+  video.playbackRate=S.rate;
+  try{ await video.play() }catch(e){ if(e&&e.name==='NotAllowedError'){S.userPaused=true;toast('Naciśnij ▶, aby odtworzyć film.')} else { toast(FILE_ERR,true,14000); stopAll(true); setBusy(false); return } }
+  if(tok!==fileTok) return;
+  video.onerror=()=>{ if(S.source==='file'&&S.running){toast(FILE_ERR,true,12000);stopAll(true)} };
+  await beginTracking(); setBusy(false); syncVctl();
 }
+const fmtT=t=>{t=Math.max(0,t||0);const m=Math.floor(t/60),s=Math.floor(t%60);return m+':'+String(s).padStart(2,'0')};
+let seeking=false;
+function syncVctl(){
+  const on=S.running&&S.source==='file'; $('vctl').hidden=!on; if(!on) return;
+  const d=video.duration||0,t=video.currentTime||0;
+  $('v-play').textContent=video.paused?'▶':'⏸'; $('v-play').setAttribute('aria-label',video.paused?'Odtwarzaj':'Pauza');
+  $('v-time').textContent=`${fmtT(t)} / ${fmtT(d)}`;
+  if(!seeking&&isFinite(d)&&d>0) $('v-seek').value=Math.round(t/d*1000);
+  $('v-name').textContent='🎬 '+(S.fileName||'film');
+  document.querySelectorAll('#seg-speed button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.r===S.rate));
+}
+function vPlayPause(){
+  if(S.source!=='file'||!S.running) return;
+  if(video.paused){ S.userPaused=false; if(video.ended) video.currentTime=0; video.play().catch(()=>toast('Nie można odtworzyć filmu.',true)) } else { S.userPaused=true; video.pause() }
+  syncVctl();
+}
+function vStep(dir){
+  if(S.source!=='file'||!S.running) return;
+  S.userPaused=true; video.pause();
+  const d=video.duration||0, fps=S.fps30||30;
+  video.currentTime=Math.min(Math.max(0,d-0.001),Math.max(0,video.currentTime+dir/fps)); syncVctl();
+}
+function vSeekTo(frac){ const d=video.duration; if(isFinite(d)&&d>0) video.currentTime=Math.min(d-0.001,Math.max(0,frac*d)); }
 async function beginTracking(){
   const ok=await modelPromise;
   if(!ok && !S.landmarker){ toast('Model pozy niedostępny – nie można rozpocząć analizy.',true); stopAll(true); return }
   S.running=true; S.lastVT=-1; S.lastTs=0; S.errCount=0;
-  S.t0=performance.now()/1000; S.series=[]; resetStats(); S.cad=null;
+  S.t0=clk(); S.series=[]; resetStats(); S.cad=null;
   S.mirror=effMirror(); S.lastLm=null; S.lastVals=null; S.lastInfer=0; S.interval=0;
   fitCanvas();
   $('empty').hidden=true; ['b-fps','b-res'].forEach(i=>$(i).hidden=false);
-  $('btn-cam').textContent='Zatrzymaj kamerę'; $('btn-cam').classList.remove('primary'); $('btn-cam').classList.add('danger');
+  $('btn-cam').textContent=S.source==='file'?'Zatrzymaj film':'Zatrzymaj kamerę'; $('btn-cam').classList.remove('primary'); $('btn-cam').classList.add('danger');
   $('btn-snap').disabled=false; $('btn-rec').disabled=false;
   cancelAnimationFrame(S.raf); S.raf=requestAnimationFrame(loop);
   requestWake(); syncDock();
 }
 function stopAll(silent){
   if(S.rec) stopRecording();
-  S.running=false; cancelAnimationFrame(S.raf);
+  S.running=false; cancelAnimationFrame(S.raf); fileTok++;
   S.stream?.getTracks().forEach(t=>t.stop()); S.stream=null;
   if(S.fileUrl){URL.revokeObjectURL(S.fileUrl);S.fileUrl=null}
-  video.pause(); video.srcObject=null; video.removeAttribute('src'); video.load();
+  video.onerror=null; video.pause(); video.srcObject=null; video.removeAttribute('src'); video.load(); S.source=null; S.fileName=null; $('vctl').hidden=true;
   $('empty').hidden=false; ['b-fps','b-res'].forEach(i=>$(i).hidden=true); $('nopose').style.display='none';
   $('btn-cam').textContent='Uruchom kamerę'; $('btn-cam').classList.add('primary'); $('btn-cam').classList.remove('danger');
   $('btn-snap').disabled=true; $('btn-rec').disabled=true;
@@ -615,7 +694,7 @@ async function requestWake(){
   try{ if('wakeLock' in navigator&&!S.wake&&!document.hidden){ const wl=await navigator.wakeLock.request('screen'); S.wake=wl; wl.addEventListener('release',()=>{if(S.wake===wl)S.wake=null}) } }catch(e){console.warn('wakeLock',e.name)}
 }
 function releaseWake(){ try{S.wake?.release?.()}catch(e){} S.wake=null }
-function setBusy(b){$('btn-cam').disabled=b;$('btn-empty-start').disabled=b; if(b){$('btn-cam').textContent='Uruchamianie…'}}
+function setBusy(b){$('btn-cam').disabled=b;$('btn-empty-start').disabled=b;$('btn-empty-film').disabled=b;$('btn-film').disabled=b;$('d-film').disabled=b; if(b){$('btn-cam').textContent='Uruchamianie…'}}
 
 /* ---------- geometria ---------- */
 function angleAt(a,b,c){ // kąt wewnętrzny w b
@@ -677,7 +756,9 @@ function analyseCycles(){
 function loop(){
   if(!S.running) return; S.raf=requestAnimationFrame(loop);
   if(document.hidden||video.readyState<2||!video.videoWidth) return;
-  const vt=video.currentTime; if(vt===S.lastVT) return; S.lastVT=vt;
+  const vt=video.currentTime; if(vt===S.lastVT) return;
+  if(S.source==='file'){ let dv=S.lastVT<0?0:vt-S.lastVT; if(dv<0||dv>1) dv=0; S.mt+=dv }
+  S.lastVT=vt;
   if(S.vw!==video.videoWidth||S.vh!==video.videoHeight) fitCanvas();   // obrót telefonu zmienia wymiary strumienia
   const w=canvas.width,h=canvas.height,now=performance.now();
   if(S.interval&&now-S.lastInfer<S.interval){ // ogranicznik: pokaż tylko obraz i ostatni szkielet
@@ -699,7 +780,7 @@ function loop(){
   // fps
   S.fpsN++; if(now-S.fpsT>=1000){S.fps=S.fpsN*1000/(now-S.fpsT);S.fpsN=0;S.fpsT=now;S.interval=IS_MOBILE?(S.inferMs>60?80:40):(S.inferMs>80?60:0);$('b-fps').textContent=`${S.fps.toFixed(0)} FPS · ${S.inferMs.toFixed(0)} ms`}
   const lm=res&&res.landmarks&&res.landmarks[0];
-  const t=now/1000-S.t0;
+  const t=clk()-S.t0;
   if(!lm){ if(now-S.lastPoseT>700) $('nopose').style.display='block'; return }
   S.lastPoseT=now; $('nopose').style.display='none'; S.nPose++;
   const {raw,vis}=computeAngles(lm,w,h);
@@ -708,13 +789,13 @@ function loop(){
   const vals=smooth(raw,t); addStats(vals);
   S.series.push({t,v:vals}); while(S.series.length&&t-S.series[0].t>65) S.series.shift();
   if(S.rec){
-    const f={t:+(now/1000-S.rec.t0).toFixed(3),v:{...vals}};
+    const f={t:+(clk()-S.rec.t0).toFixed(3),v:{...vals}};
     if(S.rec.lm) f.lm=lm.map(p=>[+p.x.toFixed(4),+p.y.toFixed(4),+p.z.toFixed(4),+(p.visibility??0).toFixed(3)]);
     S.rec.frames.push(f); addStatsTo(S.rec.stats,vals);
   }
   S.lastLm=lm; S.lastVals=vals;
   if(S.skel) drawPose(lm,vals,w,h);
-  if(S.rec) captureKey(vals,now);
+  if(S.rec) captureKey(vals,clk()*1000);
 }
 function addStatsTo(st,vals){for(const k in vals){const v=vals[k];if(v==null)continue;const s=st[k]||(st[k]={n:0,sum:0,min:Infinity,max:-Infinity});s.n++;s.sum+=v;if(v<s.min)s.min=v;if(v>s.max)s.max=v}}
 
@@ -829,21 +910,22 @@ if(window.ResizeObserver) new ResizeObserver(()=>{if($('c-chart').open)renderMai
 let recTick;
 function startRecording(){
   if(!S.running) return;
-  resetStats(); S.series=[]; S.t0=performance.now()/1000;
-  S.rec={t0:performance.now()/1000,startedAt:new Date(),frames:[],stats:{},lm:$('chk-lm').checked,
+  if(S.source==='file'){ video.loop=false; if(video.ended||video.currentTime>=(video.duration||0)-0.05) video.currentTime=0; S.userPaused=false; video.play().catch(()=>{}) }
+  resetStats(); S.series=[]; S.t0=clk();
+  S.rec={source:S.source,fileName:S.fileName,t0:clk(),startedAt:new Date(),frames:[],stats:{},lm:$('chk-lm').checked,
     client:$('in-client').value.trim(),bike:$('in-bike').value.trim()};
   $('btn-rec').textContent='⏹ Zakończ pomiar'; $('btn-rec').classList.remove('primary'); $('btn-rec').classList.add('danger');
   $('b-rec').hidden=false; $('timer').classList.add('on'); disableExports(true);
-  recTick=setInterval(()=>{const d=performance.now()/1000-S.rec.t0;$('timer').textContent=mmss(d);$('b-rec').textContent='REC '+mmss(d);syncDock()},200);
+  recTick=setInterval(()=>{if(!S.rec)return;const d=clk()-S.rec.t0;$('timer').textContent=mmss(d);$('b-rec').textContent='REC '+mmss(d);syncDock()},200);
   syncDock(); toast('Pomiar rozpoczęty – statystyki min/max zostały zresetowane.');
 }
 function stopRecording(){
   if(!S.rec) return; clearInterval(recTick);
-  const r=S.rec; r.dur=performance.now()/1000-r.t0; r.endedAt=new Date(); S.rec=null; S.last=r;
+  const r=S.rec; r.dur=clk()-r.t0; if(S.source==='file'){video.loop=true} r.endedAt=new Date(); S.rec=null; S.last=r;
   $('btn-rec').textContent='▶ Rozpocznij pomiar'; $('btn-rec').classList.add('primary'); $('btn-rec').classList.remove('danger');
   $('b-rec').hidden=true; $('timer').classList.remove('on'); $('timer').textContent=mmss(r.dur);
   disableExports(r.frames.length===0);
-  $('export-note').textContent=r.frames.length?`Pomiar: ${r.frames.length} próbek, ${r.dur.toFixed(1)} s${r.client?' · '+r.client:''}.`:'Nie zarejestrowano żadnych próbek (brak sylwetki w kadrze).';
+  $('export-note').textContent=r.frames.length?`Pomiar${r.source==='file'?' z filmu':''}: ${r.frames.length} próbek, ${r.dur.toFixed(1)} s${r.source==='file'?' filmu':''}${r.client?' · '+r.client:''}.`:'Nie zarejestrowano żadnych próbek (brak sylwetki w kadrze).';
   if(r.frames.length) loadPdfLib().catch(()=>{});
   syncDock(); if(r.frames.length) toast(`Pomiar zakończony: ${r.frames.length} próbek. Możesz pobrać dane.`);
 }
@@ -885,7 +967,7 @@ function exportJSON(){const r=S.last;if(!r)return;
   const stats={};for(const k of KEYS){const s=statOf(k,r.stats);if(s)stats[colName(k)]={min:+s.min.toFixed(2),max:+s.max.toFixed(2),range:+s.range.toFixed(2),mean:+s.mean.toFixed(2),samples:s.n}}
   const track=video.srcObject?.getVideoTracks?.()[0];
   const doc={app:'BikeRc Motion',version:1,client:r.client,bike:r.bike,startedAt:r.startedAt.toISOString(),endedAt:r.endedAt.toISOString(),durationS:+r.dur.toFixed(3),
-    source:S.source||'camera',camera:track?.label||null,resolution:[canvas.width,canvas.height],model:`pose_landmarker_${S.modelName}`,mirror:S.mirror,
+    source:(S.last&&S.last.source)||S.source||'camera',fileName:(S.last&&S.last.source==='file')?S.last.fileName:null,camera:track?.label||null,resolution:[canvas.width,canvas.height],model:`pose_landmarker_${S.modelName}`,mirror:S.mirror,
     angleDefinitions:{knee:'hip–knee–ankle (interior, 180°=extension)',hip:'shoulder–hip–knee',elbow:'shoulder–elbow–wrist',shoulder:'elbow–shoulder–hip',ankle:'knee–ankle–foot_index',wrist:'elbow–wrist–index',torso:'shoulder–hip line vs horizontal'},
     compatAngleIndex:COMPAT.map(([j,s],i)=>({index:i,joint:j,side:NAME[s]})),
     stats,landmarkFormat:r.lm?'33×[x,y,z,visibility]; x,y normalised to the unmirrored frame (0–1)':null,
@@ -992,11 +1074,11 @@ async function makeReport(){
     /* --- strona 1: nagłówek --- */
     if(logo) doc.addImage(logo,'PNG',M,12,48,48*468/1818); else {font('Archivo','italic',22,C.teal);txt('BikeRc',M,20)}
     font('Archivo','italic',22,C.dark);txt('Raport z pomiaru',PW-M,19,{align:'right'});
-    font('Inter','normal',9,C.grey);txt('Analiza ruchu z kamery · kąty stawów i zakresy ruchu',PW-M,25.5,{align:'right'});
+    font('Inter','normal',9,C.grey);txt((r.source==='file'?'Analiza ruchu z filmu':'Analiza ruchu z kamery')+' · kąty stawów i zakresy ruchu',PW-M,25.5,{align:'right'});
     doc.setFillColor(C.teal);doc.rect(M,32,CW,1.2,'F');
     let y=41;
     // dane pomiaru
-    const info=[['Klient',r.client||'—'],['Rower',r.bike||'—'],['Data i godzina',fmtDate(r.startedAt)],['Czas pomiaru',mmss(r.dur)+` (${dur.toFixed(1)} s)`],['Analizowana strona',sideTxt],['Próbki',`${fr.length} (≈ ${(fr.length/dur).toFixed(0)} kl./s)`]];
+    const info=[['Klient',r.client||'—'],['Rower',r.bike||'—'],['Data i godzina',fmtDate(r.startedAt)],[r.source==='file'?'Czas filmu (pomiar)':'Czas pomiaru',mmss(r.dur)+` (${dur.toFixed(1)} s)`],['Analizowana strona',sideTxt],['Próbki',`${fr.length} (≈ ${(fr.length/dur).toFixed(0)} kl./s)`]];
     const cw=CW/3;
     doc.setFillColor(C.bg);doc.roundedRect(M,y,CW,33,2,2,'F');
     info.forEach((it,i)=>{const cx=M+5+(i%3)*cw,cy=y+8+Math.floor(i/3)*15.5;font('Inter','bold',7,C.grey);txt(it[0].toUpperCase(),cx,cy);font('Inter','bold',10,C.dark);let L=doc.splitTextToSize(it[1],cw-7);if(L.length>1){font('Inter','bold',8.8,C.dark);L=doc.splitTextToSize(it[1],cw-7).slice(0,2)}txt(L,cx,cy+5,{lineHeightFactor:1.15})});
@@ -1013,7 +1095,7 @@ async function makeReport(){
         const x0=M+i*(iw+gap)+(iw-w)/2;
         doc.setDrawColor(C.line);doc.setLineWidth(.3);doc.addImage(c.img,'JPEG',x0,y,w,h,undefined,'FAST');doc.rect(x0,y,w,h,'S');
         font('Inter','bold',8.5,C.dark);txt(`${title} – kolano ${c.side==='L'?'lewe':'prawe'}: ${c.v.toFixed(0)}°`,M+i*(iw+gap),y+hh+5);
-        font('Inter','normal',7.5,C.grey);txt(`klatka z ${c.t.toFixed(1)} s pomiaru`,M+i*(iw+gap),y+hh+9.2);
+        font('Inter','normal',7.5,C.grey);txt(`klatka z ${c.t.toFixed(1)} s ${r.source==='file'?'filmu':'pomiaru'}`,M+i*(iw+gap),y+hh+9.2);
       });
       y+=hh+16;
     } else { font('Inter','normal',9,C.grey);txt('Brak zarejestrowanych klatek z sylwetką.',M,y+4);y+=12 }
@@ -1157,16 +1239,22 @@ async function toggleFs(){
   updateFs();
 }
 document.addEventListener('fullscreenchange',updateFs); document.addEventListener('webkitfullscreenchange',updateFs);
+function dkSet(el,ico,txt){el.querySelector('i').textContent=ico;el.querySelector('span').textContent=txt}
 function syncDock(){
-  const rec=!!S.rec,run=S.running;
-  const dc=$('d-cam'); dc.textContent=run?'⏻ Stop':'📷 Uruchom kamerę'; dc.classList.toggle('danger',run); dc.classList.toggle('primary',!run);
+  const rec=!!S.rec,run=S.running,file=S.source==='file';
+  const dc=$('d-cam'); dkSet(dc,run?'⏻':'📷',run?'Stop':'Kamera'); dc.classList.toggle('danger',run); dc.classList.toggle('primary',false);
   const dr=$('d-rec'); dr.disabled=$('btn-rec').disabled;
-  dr.textContent=rec?'⏹ Zakończ · '+$('timer').textContent:'● Start pomiaru'; dr.classList.toggle('danger',rec); dr.classList.toggle('primary',!rec);
-  $('d-fs').disabled=!run; $('s-flip').hidden=!run; $('s-fs').hidden=!run;
-  const sr=$('s-rec'); sr.hidden=!(run&&isFs()); sr.textContent=dr.textContent; sr.classList.toggle('danger',rec);
+  dkSet(dr,rec?'⏹':'●',rec?'Koniec '+$('timer').textContent:'Pomiar'); dr.classList.toggle('danger',rec); dr.classList.toggle('primary',!rec);
+  $('d-fs').disabled=!run; $('s-flip').hidden=!(run&&!file); $('s-fs').hidden=!run;
+  $('bar-facing').hidden=run&&file;
+  const sr=$('s-rec'); sr.hidden=!(run&&isFs()); sr.textContent=rec?'⏹ Zakończ · '+$('timer').textContent:'● Start pomiaru'; sr.classList.toggle('danger',rec);
+  syncVctl();
 }
+const pickFile=()=>{ if(S.rec){toast('Zakończ pomiar przed wczytaniem innego filmu.');return} $('file-video').click() };
+const pickRec=()=>{ if(S.rec){toast('Zakończ pomiar przed nagraniem filmu.');return} $('file-rec').click() };
 $('d-cam').onclick=toggleCam; $('d-rec').onclick=()=>$('btn-rec').click(); $('s-rec').onclick=()=>$('btn-rec').click();
-$('d-flip').onclick=flipCamera; $('s-flip').onclick=flipCamera; $('btn-flip2').onclick=flipCamera;
+$('d-film').onclick=pickFile; $('btn-film').onclick=pickFile; $('btn-empty-film').onclick=pickFile; $('btn-empty-rec').onclick=pickRec;
+$('s-flip').onclick=flipCamera; $('btn-flip2').onclick=flipCamera;
 $('d-fs').onclick=toggleFs; $('s-fs').onclick=toggleFs;
 $('seg-facing').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.f!==S.facing)setFacing(b.dataset.f)};
 syncFacingUI();
@@ -1181,12 +1269,27 @@ window.addEventListener('appinstalled',()=>{deferredInstall=null;$('btn-install'
 $('btn-install').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch(e){}deferredInstall=null;$('btn-install').hidden=true};
 if(IS_IOS&&!isStandalone()) $('tip-ios').hidden=false;
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')&&qs.get('nosw')!=='1')
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW',e)));
+  window.addEventListener('load',()=>{
+    const hadCtl=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
+      document.addEventListener('visibilitychange',()=>{if(!document.hidden)reg.update().catch(()=>{})});
+    }).catch(e=>console.warn('SW',e));
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{ // nowa wersja przejęła kontrolę
+      if(!hadCtl) return;
+      if(S.running||S.rec){ toast('Dostępna nowa wersja aplikacji – odśwież stronę po zakończeniu pomiaru.',false,8000) } else location.reload();
+    });
+  });
 $('btn-cam').onclick=toggleCam; $('btn-empty-start').onclick=startCamera;
 $('btn-rec').onclick=()=>S.rec?stopRecording():startRecording();
 $('btn-snap').onclick=snapshot; $('btn-pdf').onclick=makeReport; $('btn-csv').onclick=exportCSV; $('btn-csv2').onclick=exportCSVCompat; $('btn-json').onclick=exportJSON;
 $('btn-reset').onclick=()=>{resetStats();S.series=[];toast('Zresetowano min/max.')};
-$('file-video').onchange=e=>{const f=e.target.files[0];if(f)startFile(f);e.target.value=''};
+['file-video','file-rec'].forEach(id=>$(id).onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)startFile(f);e.target.value=''});
+$('v-play').onclick=vPlayPause; $('v-back').onclick=()=>vStep(-1); $('v-fwd').onclick=()=>vStep(1);
+$('seg-speed').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.rate=+b.dataset.r;video.playbackRate=S.rate;syncVctl()};
+$('v-seek').addEventListener('input',e=>{seeking=true;vSeekTo(e.target.value/1000);syncVctl()});
+['change','pointerup','touchend'].forEach(ev=>$('v-seek').addEventListener(ev,()=>{seeking=false;syncVctl()}));
+['timeupdate','play','pause','seeked','ratechange','ended'].forEach(ev=>video.addEventListener(ev,()=>{if(S.source==='file')syncVctl()}));
+video.addEventListener('ended',()=>{ if(S.source==='file'&&S.rec){ stopRecording(); toast('Film się skończył – pomiar zakończony automatycznie.') } });
 $('chk-mirror').onchange=()=>{S.mirror=effMirror()};
 $('chk-skel').onchange=e=>S.skel=e.target.checked; $('chk-labels').onchange=e=>S.labels=e.target.checked;
 $('sel-cam').onchange=()=>{if(S.running&&S.source==='camera')startCamera()};
@@ -1202,7 +1305,7 @@ document.addEventListener('visibilitychange',async()=>{
   if(!S.running) return;
   requestWake();
   if(S.source==='camera'&&S.stream&&S.stream.getVideoTracks().every(t=>t.readyState==='ended')){ toast('Kamera została zatrzymana w tle – uruchamiam ponownie…'); if(S.rec) toast('Pomiar został przerwany.',true); await startCamera(); return }
-  video.play().catch(()=>{}); S.lastVT=-1;
+  if(!(S.source==='file'&&S.userPaused)) video.play().catch(()=>{}); S.lastVT=-1;
   if(S.rec) toast('Aplikacja była w tle – w pomiarze może być przerwa w danych.',false,4000);
 });
 let rzT; const onResize=()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(S.running&&video.videoWidth) fitCanvas();renderMain();updatePanels()},250)};
