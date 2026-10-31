@@ -1,5 +1,7 @@
 # BikeRc Motion – analiza ruchu z kamery (przeglądarka)
 
+Autor i prawa autorskie: © Wojciech Wieczorek.
+
 Statyczna aplikacja (bez build-stepu): `index.html` + `assets/`.
 MediaPipe Tasks Vision PoseLandmarker działa w całości w przeglądarce – obraz nie jest nigdzie wysyłany.
 

@@ -1,5 +1,5 @@
 /* BikeRc Motion – service worker: powłoka aplikacji offline + cache bibliotek i modelu */
-const VERSION = 'v4';
+const VERSION = 'v5';
 const SHELL = `bikerc-shell-${VERSION}`;
 const LIBS = 'bikerc-libs-v1';
 const SHELL_FILES = [

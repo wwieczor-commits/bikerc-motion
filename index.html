@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="BikeRc Motion">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="color-scheme" content="dark">
+<meta name="author" content="Wojciech Wieczorek">
 <link rel="stylesheet" href="assets/fonts.css">
 <style>
 :root{
@@ -410,7 +411,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
   </aside>
 </main>
 <footer>
-  <span>© BikeRc · Motion – prototyp. Wartości orientacyjne, nie zastępują oceny fittera.</span>
+  <span>© Wojciech Wieczorek · Motion – prototyp. Wartości orientacyjne, nie zastępują oceny fittera.</span>
   <span>Pozy: MediaPipe PoseLandmarker · przetwarzanie lokalne w przeglądarce</span>
 </footer>
 <nav id="dock" aria-label="Sterowanie pomiarem">
@@ -1203,10 +1204,10 @@ async function makeReport(){
       font('Inter','normal',6.8,C.grey);
       txt('Wartości orientacyjne, generowane automatycznie – nie stanowią porady medycznej ani oceny fittera. Interpretacji wyników dokonuje specjalista.',M,PH-12.5);
       font('Inter','bold',8,C.tealD);txt('bikerc.pl',M,PH-7);
-      font('Inter','normal',8,C.grey);txt('· kontakt@bikerc.pl · BIKERC Prosta Spółka Akcyjna, Rzeszów',M+14,PH-7);
+      font('Inter','normal',8,C.grey);txt('· kontakt@bikerc.pl · Wojciech Wieczorek',M+14,PH-7);
       txt(`Strona ${i} z ${n}`,PW-M,PH-7,{align:'right'});
     }
-    doc.setProperties({title:`Raport BikeRc${r.client?' – '+r.client:''}`,author:'BikeRc',subject:'Raport z pomiaru ruchu',creator:'BikeRc Motion'});
+    doc.setProperties({title:`Raport BikeRc${r.client?' – '+r.client:''}`,author:'Wojciech Wieczorek',subject:'Raport z pomiaru ruchu',creator:'BikeRc Motion'});
     deliver(doc.output('blob'),baseName(r)+'-raport.pdf','application/pdf');
     toast(IS_MOBILE?'Raport PDF gotowy.':'Raport PDF zapisany.');
   }catch(e){console.error(e);toast('Nie udało się wygenerować raportu PDF: '+(e&&e.message||e),true,9000)}
