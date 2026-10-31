@@ -1,0 +1,1215 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BikeRc Motion – analiza ruchu z kamery</title>
+<meta name="description" content="Analiza ruchu z kamery komputera w przeglądarce: szkielet, kąty stawów, zakresy ruchu, nagrywanie i eksport pomiaru.">
+<meta name="theme-color" content="#232222">
+<link rel="icon" type="image/svg+xml" href="assets/logo-bikerc.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BikeRc Motion">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+:root{
+  --bg:#232222; --bg-deep:#1F1E1E; --panel:#2B2A2A; --line:#4A4848;
+  --text:#F2F4F3; --muted:#A9AFAE; --dim:#7C8584;
+  --teal:#2EC4B6; --teal-hi:#6FDCD1; --left:#2EC4B6; --right:#FEDA75; --danger:#FE2C55;
+  --r:6px; --r-lg:12px;
+  --head:Archivo,'Helvetica Neue',Arial,sans-serif; --body:Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+a{color:var(--teal);text-decoration:none} a:hover{color:var(--teal-hi)}
+button,select,input{font:inherit;color:inherit}
+a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--teal-hi);outline-offset:3px}
+h1,h2,h3{font-family:var(--head);margin:0}
+
+.top{position:sticky;top:0;z-index:20;background:rgba(35,34,34,.92);backdrop-filter:blur(10px);border-bottom:1px solid #333;display:flex;align-items:center;gap:20px;padding:12px 24px}
+.top img{height:30px;width:auto;display:block}
+.top .tag{font-family:var(--head);font-weight:800;font-style:italic;font-size:15px;letter-spacing:-.01em;color:var(--muted);padding-left:20px;border-left:1px solid var(--line)}
+.top .sp{flex:1}
+.pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 12px;background:var(--bg-deep);white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--dim);display:inline-block}
+.pill.ok i{background:var(--teal);animation:pulse 2s ease-out infinite}
+.pill.warn i{background:var(--right)} .pill.err i{background:var(--danger)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,196,182,.6)}70%{box-shadow:0 0 0 8px rgba(46,196,182,0)}100%{box-shadow:0 0 0 0 rgba(46,196,182,0)}}
+.toplink{font-size:14px;font-weight:600;border:1px solid var(--line);border-radius:var(--r);padding:7px 14px;color:var(--text)}
+.toplink:hover{border-color:var(--teal);color:var(--teal)}
+
+main{max-width:1500px;margin:0 auto;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start}
+.col{display:flex;flex-direction:column;gap:24px;min-width:0}
+.card{background:var(--panel);border:1px solid #3a3838;border-radius:var(--r-lg);padding:20px}
+.card h2{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.card h2 .sub{margin-left:auto;font-family:var(--body);letter-spacing:0;text-transform:none;font-weight:500;color:var(--dim);font-size:12px}
+
+/* stage */
+.stage{position:relative;background:#000;border-radius:var(--r-lg);overflow:hidden;border:1px solid #3a3838;aspect-ratio:16/9}
+.stage canvas{width:100%;height:100%;display:block;object-fit:contain;background:#000}
+.stage video{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.hud{position:absolute;left:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.badge{background:rgba(31,30,30,.78);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(4px);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.badge.rec{color:#fff;background:rgba(254,44,85,.85);border-color:transparent}
+.badge.rec::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;margin-right:8px;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.2}}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;background:
+  radial-gradient(circle at 50% 40%,rgba(46,196,182,.12),transparent 55%),var(--bg-deep)}
+.empty img{height:46px}
+.empty h1{font-weight:900;font-style:italic;font-size:clamp(26px,4vw,46px);line-height:1;letter-spacing:-.02em}
+.empty p{margin:0;max-width:34em;color:var(--muted);font-size:15px}
+.empty .scan{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--teal),transparent);opacity:.5;animation:scan 3.6s linear infinite}
+@keyframes scan{from{top:-2%}to{top:102%}}
+.nopose{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(31,30,30,.85);border:1px solid var(--right);color:var(--right);padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;display:none}
+
+/* controls */
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--bg-deep);color:var(--text);font-weight:600;border-radius:var(--r);padding:10px 16px;cursor:pointer;transition:transform .2s,border-color .2s,background .2s;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--teal);color:var(--teal-hi);transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:var(--bg-deep)}
+.btn.primary:hover:not(:disabled){background:var(--teal-hi);border-color:var(--teal-hi);color:var(--bg-deep)}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.btn.danger:hover:not(:disabled){background:#ff5273;border-color:#ff5273;color:#fff}
+.btn.big{padding:14px 22px;font-size:16px}
+.btn.small{padding:6px 10px;font-size:13px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+select,input[type=text]{background:var(--bg-deep);border:1px solid var(--line);border-radius:var(--r);padding:9px 12px;min-width:0;max-width:100%}
+select:hover,input[type=text]:hover{border-color:#666}
+input[type=text]::placeholder{color:var(--dim)}
+.grow{flex:1 1 220px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--bg-deep)}
+.seg button{appearance:none;border:0;background:transparent;padding:9px 14px;font-weight:600;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--teal);color:var(--bg-deep)}
+.seg button:hover:not([aria-pressed=true]){color:var(--text);background:#333}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:var(--muted);user-select:none}
+.switch input{accent-color:var(--teal);width:18px;height:18px}
+.sep{height:1px;background:#3a3838;margin:16px 0}
+
+/* angle cards */
+.angles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.ang{background:var(--bg-deep);border:1px solid #3a3838;border-radius:var(--r-lg);padding:14px 14px 10px;cursor:pointer;text-align:left;transition:border-color .2s,transform .2s;position:relative;overflow:hidden}
+.ang:hover{border-color:#666} .ang.sel{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal)}
+.ang h3{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.ang .row{display:flex;align-items:baseline;gap:10px;font-variant-numeric:tabular-nums}
+.ang .val{font-family:var(--head);font-weight:900;font-style:italic;font-size:34px;line-height:1.1;letter-spacing:-.02em}
+.ang .val small{font-size:.5em;margin-left:1px;font-style:normal}
+.ang .s{font-size:11px;font-weight:800;border-radius:4px;padding:1px 6px;color:var(--bg-deep)}
+.ang .s.L{background:var(--left)} .ang .s.R{background:var(--right)}
+.ang .mm{font-size:12px;color:var(--dim);margin-left:auto;font-variant-numeric:tabular-nums}
+.ang canvas{width:100%;height:44px;display:block;margin-top:4px}
+.ang .na{color:var(--dim)}
+
+/* chart */
+.chartwrap{position:relative}
+#main-chart{width:100%;height:280px;display:block;background:var(--bg-deep);border-radius:var(--r);border:1px solid #3a3838}
+.legend{display:flex;gap:16px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.legend b{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{appearance:none;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.tab[aria-pressed=true]{background:var(--teal);color:var(--bg-deep);border-color:var(--teal)}
+.tab:hover:not([aria-pressed=true]){color:var(--text);border-color:#777}
+
+/* stats table */
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid #3a3838;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:700}
+th.L{color:var(--left)} th.R{color:var(--right)}
+td.grp{border-left:1px solid #3a3838}
+tr.hl td:first-child{color:var(--teal)}
+td.big{font-weight:700}
+
+/* measurement side panel */
+.timer{font-family:var(--head);font-weight:900;font-style:italic;font-size:54px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:6px 0 2px}
+.timer.on{color:var(--danger)}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.kv div{background:var(--bg-deep);border:1px solid #3a3838;border-radius:var(--r);padding:10px 12px}
+.kv span{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.kv b{font-family:var(--head);font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.stack{display:flex;flex-direction:column;gap:12px}
+.stack .btn{width:100%;text-align:center}
+.note{font-size:12px;color:var(--dim);margin:12px 0 0}
+.tips{margin:0;padding-left:18px;color:var(--muted);font-size:13px}
+.tips li{margin:4px 0}
+
+#toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--bg-deep);border:1px solid var(--line);border-left:4px solid var(--teal);padding:12px 18px;border-radius:var(--r);max-width:min(560px,92vw);opacity:0;pointer-events:none;transition:all .3s;z-index:50;font-weight:500}
+#toast.show{opacity:1;transform:translate(-50%,0)} #toast.err{border-left-color:var(--danger)}
+footer{max-width:1500px;margin:0 auto;padding:8px 24px 40px;color:var(--dim);font-size:12px;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
+
+@media (max-width:1100px){main{grid-template-columns:1fr}}
+@media (max-width:700px){.top{padding:10px 14px;gap:10px}.top .tag{display:none}.toplink{display:none}main{padding:14px;gap:14px}.col{gap:14px}.card{padding:14px}.timer{font-size:44px}}
+/* ---------- mobile / PWA ---------- */
+html{-webkit-text-size-adjust:100%;overflow-x:hidden}
+body{overflow-x:hidden;overscroll-behavior-y:none}
+button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.stage video{width:2px;height:2px;opacity:.01}
+.stbtns{position:absolute;right:10px;top:10px;display:flex;gap:8px;z-index:3}
+.rbtn{appearance:none;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(31,30,30,.72);backdrop-filter:blur(4px);color:#fff;font-size:20px;line-height:1;display:grid;place-items:center;cursor:pointer;padding:0}
+.rbtn:active{background:rgba(46,196,182,.5)}
+#s-rec{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:3;min-width:150px;height:56px;border-radius:999px;border:0;background:var(--teal);color:var(--bg-deep);font-weight:800;font-size:17px;padding:0 24px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,.5)}
+#s-rec.danger{background:var(--danger);color:#fff}
+.stage.fake-fs{position:fixed;inset:0;z-index:90;border-radius:0;border:0;aspect-ratio:auto!important;width:100%;height:100dvh;max-height:none}
+.stage:fullscreen{aspect-ratio:auto!important;width:100%;height:100%;border-radius:0;border:0;max-height:none}
+.stage:-webkit-full-screen{aspect-ratio:auto!important;width:100%;height:100%;border-radius:0;border:0;max-height:none}
+.notice{background:#3A2A12;border:1px solid var(--right);color:#FFE9AE;border-radius:var(--r-lg);padding:14px 16px;font-size:14px;line-height:1.45}
+.notice b{color:#fff}
+.fold>summary{list-style:none;cursor:pointer;-webkit-user-select:none;user-select:none}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary h2::after{content:"";width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translateY(-2px);margin-left:10px;transition:transform .2s;flex:none}
+.fold:not([open])>summary h2::after{transform:rotate(-45deg)}
+.fold:not([open])>summary h2{margin-bottom:0}
+#c-set>summary{display:none}
+#dock{display:none}
+#sheet{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
+#sheet .panel{width:min(520px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+#sheet h3{font-size:20px;font-weight:900;font-style:italic}
+#sheet .nm{color:var(--muted);font-size:13px;word-break:break-all;margin:0 0 4px}
+#sheet a.btn{display:block;text-align:center;text-decoration:none;color:var(--text)}
+#sheet a.btn.primary{color:var(--bg-deep)}
+.btn.install{padding:6px 12px;font-size:13px;border-color:var(--teal);color:var(--teal)}
+.seg.lg button{padding:11px 18px}
+
+@media (max-width:900px), (max-height:520px) and (orientation:landscape){
+  body{font-size:16px;padding-bottom:calc(86px + env(safe-area-inset-bottom))}
+  .top{position:static;padding:10px 14px;padding-left:max(14px,env(safe-area-inset-left));gap:10px}
+  .top .tag,.toplink{display:none}
+  .top img{height:26px}
+  main{grid-template-columns:minmax(0,1fr);padding:10px;padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right));gap:12px}
+  .col{display:contents}
+  #c-video{order:0}#c-angles{order:1}#c-measure{order:2}#c-side{order:3}#c-export{order:4}#c-chart{order:5}#c-stats{order:6}#c-tips{order:7}
+  #https-warn{order:-1}
+  #c-video{padding:0;background:none;border:0}
+  .stage{aspect-ratio:3/4;max-height:calc(100dvh - 170px);min-height:300px}
+  .empty{padding:16px;gap:12px}.empty h1{font-size:26px}.empty p{font-size:14px}
+  .card{padding:14px}
+  .card h2{font-size:14px}
+  .btn{min-height:46px;font-size:16px}
+  .btn.small{min-height:36px}
+  select,input[type=text]{font-size:16px;min-height:46px}
+  .seg button{padding:12px 14px;font-size:15px;min-height:46px}
+  .tab{padding:9px 16px;font-size:14px}
+  .switch{min-height:40px}.switch input{width:22px;height:22px}
+  .bar{margin-top:10px}
+  #c-set{margin-top:10px;border:1px solid #3a3838;border-radius:var(--r-lg);padding:12px;background:var(--panel)}
+  #c-set>summary{display:flex;font-weight:700;color:var(--muted);align-items:center;min-height:30px}
+  #c-set>summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg)}
+  #c-set:not([open])>summary::after{transform:rotate(-45deg)}
+  #btn-cam{display:none}
+  .angles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .ang{padding:12px 10px 8px}
+  .ang h3{font-size:12px}
+  .ang .val{font-size:28px}
+  .ang .row{flex-wrap:wrap;gap:6px}
+  .ang .mm{flex-basis:100%;margin-left:0;font-size:11px}
+  .timer{font-size:42px}
+  #c-measure .stack{display:none}
+  #main-chart{height:220px}
+  #dock{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right));background:rgba(35,34,34,.96);border-top:1px solid #3a3838;backdrop-filter:blur(10px)}
+  #dock .btn{min-height:54px;padding:8px 10px;font-weight:800}
+  #dock .grow2{flex:2 1 0}#dock .grow1{flex:1 1 0}#dock .ico{flex:0 0 54px;padding:0;font-size:22px}
+  #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
+  footer{padding:8px 14px calc(24px)}
+}
+@media (max-height:520px) and (orientation:landscape){
+  .top{display:none}
+  .stage{max-height:calc(100dvh - 90px);min-height:200px;aspect-ratio:16/9}
+  #dock .btn{min-height:44px}
+  body{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjEyNCAyMjYgNjA2IDE1NiIgd2lkdGg9IjYwNiIgaGVpZ2h0PSIxNTYiPjx0aXRsZT5CaWtlUmM8L3RpdGxlPjxwYXRoIGZpbGw9IiMyRUM0QjYiIGZpbGwtcnVsZT0ibm9uemVybyIgZD0iTSAxNjMuNTU0Njg4IDM1MS4yMDMxMjUgTCAxNzEuNjE3MTg4IDMxMy4yODkwNjIgTCAxOTUuNTQyOTY5IDMxMy4yODkwNjIgQyAyMDkuOTU3MDMxIDMxMy4yODkwNjIgMjE5LjMwMDc4MSAzMTUuODU5Mzc1IDIxNS43ODEyNSAzMzIuMjQ2MDk0IEMgMjEyLjI5Mjk2OSAzNDguNjM2NzE5IDIwMS44OTQ1MzEgMzUxLjIwMzEyNSAxODcuNDQ1MzEyIDM1MS4yMDMxMjUgWiBNIDE3Ni42ODM1OTQgMjg5LjU5NzY1NiBMIDE4My44MjQyMTkgMjU2LjAyNzM0NCBMIDIwNy43MTg3NSAyNTYuMDI3MzQ0IEMgMjIwLjU4NTkzOCAyNTYuMDI3MzQ0IDIyNi41NDI5NjkgMjYxLjM1OTM3NSAyMjQuMTA1NDY5IDI3Mi44MTI1IEMgMjIxLjY3MTg3NSAyODQuMjY1NjI1IDIxMy40MTAxNTYgMjg5LjU5NzY1NiAyMDAuNTc4MTI1IDI4OS41OTc2NTYgWiBNIDE4MS44MTY0MDYgMzc0Ljg5ODQzOCBDIDIwMy40MDYyNSAzNzYuNDc2NTYyIDI0MS4xMjEwOTQgMzY2LjIxMDkzOCAyNDcuMTQ0NTMxIDMzNy45NzI2NTYgQyAyNTEuNTg1OTM4IDMxNy4wNDI5NjkgMjQwLjgyNDIxOSAzMDQuNjAxNTYyIDIyMy42Nzk2ODggMzAwLjg1MTU2MiBMIDIyMy43NDYwOTQgMzAwLjQ1NzAzMSBDIDIzOC45NDkyMTkgMjk1LjcxODc1IDI1Mi4xMTMyODEgMjg0Ljg1NTQ2OSAyNTUuNDM3NSAyNjkuMjU3ODEyIEMgMjYxLjM5NDUzMSAyNDEuNDE3OTY5IDIzNy42MDE1NjIgMjMwLjc1MzkwNiAyMTEuODAwNzgxIDIzMi4zMzIwMzEgTCAxNTguMjg5MDYyIDIzMi4zMzIwMzEgTCAxMjcuOTE0MDYyIDM3NC44OTg0MzggWiBNIDI3MS43MTg3NSAyNzUuNzczNDM4IEwgMjUwLjU5Mzc1IDM3NC44OTg0MzggTCAyODAuMjEwOTM4IDM3NC44OTg0MzggTCAzMDEuMzA0Njg4IDI3NS43NzM0MzggWiBNIDI3OS45ODA0NjkgMjMyLjMzMjAzMSBMIDI3NC41NTA3ODEgMjU3LjgwNDY4OCBMIDMwNi4xNDQ1MzEgMjU3LjgwNDY4OCBMIDMxMS41MzkwNjIgMjMyLjMzMjAzMSBaIE0gMzU3LjgwNDY4OCAyMzIuMzMyMDMxIEwgMzI4LjIxODc1IDIzMi4zMzIwMzEgTCAyOTcuODQzNzUgMzc0Ljg5ODQzOCBMIDMyNy40NjA5MzggMzc0Ljg5ODQzOCBMIDMzOC45NDkyMTkgMzIwLjk5MjE4OCBMIDMzOS40MTAxNTYgMzIwLjU5NzY1NiBMIDM1Ny42NzE4NzUgMzc0Ljg5ODQzOCBMIDM5Mi4yMjY1NjIgMzc0Ljg5ODQzOCBMIDM2OC4wMDc4MTIgMzE4LjAzMTI1IEwgNDExLjQxNDA2MiAyNzQuNTg5ODQ0IEwgMzc4LjQzNzUgMjc0LjU4OTg0NCBMIDM0MC4zMjgxMjUgMzE2LjI1MzkwNiBMIDM0MC4wMzUxNTYgMzE1Ljg1OTM3NSBaIE0gNDk4Ljg4MjgxMiAzMzMuMjM0Mzc1IEMgNTAwLjI2MTcxOSAzMjYuNzE4NzUgNTAxLjYxMzI4MSAzMjAuMzk4NDM4IDUwMi4xNDA2MjUgMzE0LjI3NzM0NCBDIDUwMi42OTkyMTkgMzA3Ljk2MDkzOCA1MDIuNTY2NDA2IDMwMi4wMzUxNTYgNTAwLjk4ODI4MSAyOTYuNTA3ODEyIEMgNDk2LjQxNDA2MiAyNzkuMTI4OTA2IDQ4Mi4zNTkzNzUgMjcyLjgxMjUgNDYzLjgwMDc4MSAyNzIuODEyNSBDIDQzMy41ODk4NDQgMjcyLjgxMjUgNDExLjM0Mzc1IDI5NS43MTg3NSA0MDQuOTkyMTg4IDMyNS41MzEyNSBDIDM5Ny45MTQwNjIgMzU4LjcwNzAzMSA0MDcuNDU3MDMxIDM3Ny44NTkzNzUgNDQxLjQyMTg3NSAzNzcuODU5Mzc1IEMgNDY0LjUyMzQzOCAzNzcuODU5Mzc1IDQ4NS4zODY3MTkgMzY5Ljc2MTcxOSA0OTMuMTU2MjUgMzQ1LjI3NzM0NCBMIDQ2Ni41MzEyNSAzNDUuMjc3MzQ0IEMgNDYxLjgyNDIxOSAzNTQuMzYzMjgxIDQ1NS45MDIzNDQgMzU4LjExMzI4MSA0NDUuNjMyODEyIDM1OC4xMTMyODEgQyA0MzAuMzk4NDM4IDM1OC4xMTMyODEgNDMxLjE4NzUgMzQ2LjA3MDMxMiA0MzMuOTE3OTY5IDMzMy4yMzQzNzUgWiBNIDQzOC4xMjg5MDYgMzEzLjQ4ODI4MSBDIDQ0MC44MjgxMjUgMzAyLjYyODkwNiA0NDUuOTY0ODQ0IDI5Mi41NTg1OTQgNDU5LjU4NTkzOCAyOTIuNTU4NTk0IEMgNDc0IDI5Mi41NTg1OTQgNDc0LjgyNDIxOSAzMDIuNjI4OTA2IDQ3Mi41MTk1MzEgMzEzLjQ4ODI4MSBaIE0gNTU1LjQ4MDQ2OSAyNTYuMDI3MzQ0IEwgNTgxLjE0ODQzOCAyNTYuMDI3MzQ0IEMgNTk0LjU0Mjk2OSAyNTYuMjI2NTYyIDYwMS4zMjAzMTIgMjYxLjUyMzQzOCA1OTguNjU2MjUgMjc0LjA5Mzc1IEMgNTk1Ljk1NzAzMSAyODYuNjY3OTY5IDU4Ni42NDQ1MzEgMjkzLjM0NzY1NiA1NzMuMTUyMzQ0IDI5My41NDY4NzUgTCA1NDcuNDgwNDY5IDI5My41NDY4NzUgWiBNIDU0Mi40NDUzMTIgMzE3LjIzODI4MSBMIDU3NC44MjgxMjUgMzE3LjIzODI4MSBDIDU4NC44MzU5MzggMzE3LjYzNjcxOSA1ODQuNDcyNjU2IDMyOC41MjczNDQgNTgzLjU4MjAzMSAzMzYuNDYwOTM4IEMgNTgyLjIzNDM3NSAzNDkuMzU5Mzc1IDU4MC44NTE1NjIgMzYyLjIyNjU2MiA1ODAuNzE4NzUgMzc0Ljg5ODQzOCBMIDYxNC40ODQzNzUgMzc0Ljg5ODQzOCBDIDYxMC40Mzc1IDM2NyA2MTIuODM5ODQ0IDM1MC4xNDg0MzggNjEzLjM5ODQzOCAzNDEuMDM1MTU2IEMgNjE1LjA0Njg3NSAzMjEuMTg3NSA2MTguMTQwNjI1IDMwNi43NzM0MzggNTk1LjE5OTIxOSAzMDQuMjA3MDMxIEwgNTk1LjI2NTYyNSAzMDMuODEyNSBDIDYxMy42Mjg5MDYgMzAwLjA2MjUgNjI4LjI3MzQzOCAyODcuODUxNTYyIDYzMi4yMjI2NTYgMjY5LjM5MDYyNSBDIDYzOC4zNzg5MDYgMjQwLjQyOTY4OCA2MTUuMDExNzE5IDIzMi41MzEyNSA1OTAuNTYyNSAyMzIuMzMyMDMxIEwgNTI5Ljk0MTQwNiAyMzIuMzMyMDMxIEwgNDk5LjU2NjQwNiAzNzQuODk4NDM4IEwgNTMwLjE3MTg3NSAzNzQuODk4NDM4IFogTSA3MTkuNDYwOTM4IDMxMC41MjczNDQgQyA3MjQuNjI4OTA2IDI4Ny4yMjY1NjIgNzA4LjkyOTY4OCAyNzIuODEyNSA2ODMuNjU2MjUgMjcyLjgxMjUgQyA2NTQuMjY1NjI1IDI3Mi44MTI1IDYzMy44NjMyODEgMjk5LjA3NDIxOSA2MjguMjY5NTMxIDMyNS4zMzU5MzggQyA2MjIuNjcxODc1IDM1MS41OTc2NTYgNjMxLjg4NjcxOSAzNzcuODU5Mzc1IDY2MS4zMDg1OTQgMzc3Ljg1OTM3NSBDIDY4OC41NTg1OTQgMzc3Ljg1OTM3NSA3MDcuMDg1OTM4IDM2NC4wMzkwNjIgNzEzLjQzNzUgMzM4Ljc2MTcxOSBMIDY4NC42MDkzNzUgMzM4Ljc2MTcxOSBDIDY4Mi42OTkyMTkgMzQ2Ljg1OTM3NSA2NzYuOTQxNDA2IDM1OC4xMTMyODEgNjY1LjQ4ODI4MSAzNTguMTEzMjgxIEMgNjUyLjg1MTU2MiAzNTguMTEzMjgxIDY1OC4wMTk1MzEgMzMzLjAzNTE1NiA2NTkuMTM2NzE5IDMyMy45NTMxMjUgQyA2NjEuMTc5Njg4IDMxNi4yNTM5MDYgNjY2LjQ0MTQwNiAyOTIuNTU4NTk0IDY3OS4wODIwMzEgMjkyLjU1ODU5NCBDIDY5MC41MzEyNSAyOTIuNTU4NTk0IDY5MS43ODUxNTYgMzAyLjQyOTY4OCA2OTAuMjM4MjgxIDMxMC41MjczNDQgWiBNIDcxOS40NjA5MzggMzEwLjUyNzM0NCAiPjwvcGF0aD48L3N2Zz4=" alt="BikeRc" id="logo">
+  <span class="tag">Motion · analiza ruchu z kamery</span>
+  <span class="sp"></span>
+  <span class="pill" id="pill-model"><i></i><span id="pill-model-t">Model: ładowanie…</span></span>
+  <button class="btn install" id="btn-install" hidden>⬇ Zainstaluj</button>
+  <a class="toplink" href="https://bikerc-5a1dd.web.app/pomiary" target="_blank" rel="noopener">System pomiarów ↗</a>
+</header>
+
+<main>
+  <div class="notice" id="https-warn" hidden></div>
+  <div class="col">
+    <section class="card" aria-label="Podgląd z kamery" id="c-video">
+      <div class="stage" id="stage">
+        <video id="video" playsinline webkit-playsinline muted autoplay></video>
+        <canvas id="view" width="1280" height="720"></canvas>
+        <div class="stbtns"><button class="rbtn" id="s-flip" hidden aria-label="Przełącz kamerę przód/tył" title="Przełącz kamerę">🔄</button><button class="rbtn" id="s-fs" hidden aria-label="Pełny ekran" title="Pełny ekran">⛶</button></div>
+        <button id="s-rec" hidden>● Start pomiaru</button>
+        <div class="hud" id="hud">
+          <span class="badge" id="b-fps" hidden>– FPS</span>
+          <span class="badge" id="b-res" hidden></span>
+          <span class="badge rec" id="b-rec" hidden>REC 00:00</span>
+        </div>
+        <div class="nopose" id="nopose">Nie widzę sylwetki – wejdź w kadr, bokiem do kamery</div>
+        <div class="empty" id="empty">
+          <div class="scan"></div>
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjEyNCAyMjYgNjA2IDE1NiIgd2lkdGg9IjYwNiIgaGVpZ2h0PSIxNTYiPjx0aXRsZT5CaWtlUmM8L3RpdGxlPjxwYXRoIGZpbGw9IiMyRUM0QjYiIGZpbGwtcnVsZT0ibm9uemVybyIgZD0iTSAxNjMuNTU0Njg4IDM1MS4yMDMxMjUgTCAxNzEuNjE3MTg4IDMxMy4yODkwNjIgTCAxOTUuNTQyOTY5IDMxMy4yODkwNjIgQyAyMDkuOTU3MDMxIDMxMy4yODkwNjIgMjE5LjMwMDc4MSAzMTUuODU5Mzc1IDIxNS43ODEyNSAzMzIuMjQ2MDk0IEMgMjEyLjI5Mjk2OSAzNDguNjM2NzE5IDIwMS44OTQ1MzEgMzUxLjIwMzEyNSAxODcuNDQ1MzEyIDM1MS4yMDMxMjUgWiBNIDE3Ni42ODM1OTQgMjg5LjU5NzY1NiBMIDE4My44MjQyMTkgMjU2LjAyNzM0NCBMIDIwNy43MTg3NSAyNTYuMDI3MzQ0IEMgMjIwLjU4NTkzOCAyNTYuMDI3MzQ0IDIyNi41NDI5NjkgMjYxLjM1OTM3NSAyMjQuMTA1NDY5IDI3Mi44MTI1IEMgMjIxLjY3MTg3NSAyODQuMjY1NjI1IDIxMy40MTAxNTYgMjg5LjU5NzY1NiAyMDAuNTc4MTI1IDI4OS41OTc2NTYgWiBNIDE4MS44MTY0MDYgMzc0Ljg5ODQzOCBDIDIwMy40MDYyNSAzNzYuNDc2NTYyIDI0MS4xMjEwOTQgMzY2LjIxMDkzOCAyNDcuMTQ0NTMxIDMzNy45NzI2NTYgQyAyNTEuNTg1OTM4IDMxNy4wNDI5NjkgMjQwLjgyNDIxOSAzMDQuNjAxNTYyIDIyMy42Nzk2ODggMzAwLjg1MTU2MiBMIDIyMy43NDYwOTQgMzAwLjQ1NzAzMSBDIDIzOC45NDkyMTkgMjk1LjcxODc1IDI1Mi4xMTMyODEgMjg0Ljg1NTQ2OSAyNTUuNDM3NSAyNjkuMjU3ODEyIEMgMjYxLjM5NDUzMSAyNDEuNDE3OTY5IDIzNy42MDE1NjIgMjMwLjc1MzkwNiAyMTEuODAwNzgxIDIzMi4zMzIwMzEgTCAxNTguMjg5MDYyIDIzMi4zMzIwMzEgTCAxMjcuOTE0MDYyIDM3NC44OTg0MzggWiBNIDI3MS43MTg3NSAyNzUuNzczNDM4IEwgMjUwLjU5Mzc1IDM3NC44OTg0MzggTCAyODAuMjEwOTM4IDM3NC44OTg0MzggTCAzMDEuMzA0Njg4IDI3NS43NzM0MzggWiBNIDI3OS45ODA0NjkgMjMyLjMzMjAzMSBMIDI3NC41NTA3ODEgMjU3LjgwNDY4OCBMIDMwNi4xNDQ1MzEgMjU3LjgwNDY4OCBMIDMxMS41MzkwNjIgMjMyLjMzMjAzMSBaIE0gMzU3LjgwNDY4OCAyMzIuMzMyMDMxIEwgMzI4LjIxODc1IDIzMi4zMzIwMzEgTCAyOTcuODQzNzUgMzc0Ljg5ODQzOCBMIDMyNy40NjA5MzggMzc0Ljg5ODQzOCBMIDMzOC45NDkyMTkgMzIwLjk5MjE4OCBMIDMzOS40MTAxNTYgMzIwLjU5NzY1NiBMIDM1Ny42NzE4NzUgMzc0Ljg5ODQzOCBMIDM5Mi4yMjY1NjIgMzc0Ljg5ODQzOCBMIDM2OC4wMDc4MTIgMzE4LjAzMTI1IEwgNDExLjQxNDA2MiAyNzQuNTg5ODQ0IEwgMzc4LjQzNzUgMjc0LjU4OTg0NCBMIDM0MC4zMjgxMjUgMzE2LjI1MzkwNiBMIDM0MC4wMzUxNTYgMzE1Ljg1OTM3NSBaIE0gNDk4Ljg4MjgxMiAzMzMuMjM0Mzc1IEMgNTAwLjI2MTcxOSAzMjYuNzE4NzUgNTAxLjYxMzI4MSAzMjAuMzk4NDM4IDUwMi4xNDA2MjUgMzE0LjI3NzM0NCBDIDUwMi42OTkyMTkgMzA3Ljk2MDkzOCA1MDIuNTY2NDA2IDMwMi4wMzUxNTYgNTAwLjk4ODI4MSAyOTYuNTA3ODEyIEMgNDk2LjQxNDA2MiAyNzkuMTI4OTA2IDQ4Mi4zNTkzNzUgMjcyLjgxMjUgNDYzLjgwMDc4MSAyNzIuODEyNSBDIDQzMy41ODk4NDQgMjcyLjgxMjUgNDExLjM0Mzc1IDI5NS43MTg3NSA0MDQuOTkyMTg4IDMyNS41MzEyNSBDIDM5Ny45MTQwNjIgMzU4LjcwNzAzMSA0MDcuNDU3MDMxIDM3Ny44NTkzNzUgNDQxLjQyMTg3NSAzNzcuODU5Mzc1IEMgNDY0LjUyMzQzOCAzNzcuODU5Mzc1IDQ4NS4zODY3MTkgMzY5Ljc2MTcxOSA0OTMuMTU2MjUgMzQ1LjI3NzM0NCBMIDQ2Ni41MzEyNSAzNDUuMjc3MzQ0IEMgNDYxLjgyNDIxOSAzNTQuMzYzMjgxIDQ1NS45MDIzNDQgMzU4LjExMzI4MSA0NDUuNjMyODEyIDM1OC4xMTMyODEgQyA0MzAuMzk4NDM4IDM1OC4xMTMyODEgNDMxLjE4NzUgMzQ2LjA3MDMxMiA0MzMuOTE3OTY5IDMzMy4yMzQzNzUgWiBNIDQzOC4xMjg5MDYgMzEzLjQ4ODI4MSBDIDQ0MC44MjgxMjUgMzAyLjYyODkwNiA0NDUuOTY0ODQ0IDI5Mi41NTg1OTQgNDU5LjU4NTkzOCAyOTIuNTU4NTk0IEMgNDc0IDI5Mi41NTg1OTQgNDc0LjgyNDIxOSAzMDIuNjI4OTA2IDQ3Mi41MTk1MzEgMzEzLjQ4ODI4MSBaIE0gNTU1LjQ4MDQ2OSAyNTYuMDI3MzQ0IEwgNTgxLjE0ODQzOCAyNTYuMDI3MzQ0IEMgNTk0LjU0Mjk2OSAyNTYuMjI2NTYyIDYwMS4zMjAzMTIgMjYxLjUyMzQzOCA1OTguNjU2MjUgMjc0LjA5Mzc1IEMgNTk1Ljk1NzAzMSAyODYuNjY3OTY5IDU4Ni42NDQ1MzEgMjkzLjM0NzY1NiA1NzMuMTUyMzQ0IDI5My41NDY4NzUgTCA1NDcuNDgwNDY5IDI5My41NDY4NzUgWiBNIDU0Mi40NDUzMTIgMzE3LjIzODI4MSBMIDU3NC44MjgxMjUgMzE3LjIzODI4MSBDIDU4NC44MzU5MzggMzE3LjYzNjcxOSA1ODQuNDcyNjU2IDMyOC41MjczNDQgNTgzLjU4MjAzMSAzMzYuNDYwOTM4IEMgNTgyLjIzNDM3NSAzNDkuMzU5Mzc1IDU4MC44NTE1NjIgMzYyLjIyNjU2MiA1ODAuNzE4NzUgMzc0Ljg5ODQzOCBMIDYxNC40ODQzNzUgMzc0Ljg5ODQzOCBDIDYxMC40Mzc1IDM2NyA2MTIuODM5ODQ0IDM1MC4xNDg0MzggNjEzLjM5ODQzOCAzNDEuMDM1MTU2IEMgNjE1LjA0Njg3NSAzMjEuMTg3NSA2MTguMTQwNjI1IDMwNi43NzM0MzggNTk1LjE5OTIxOSAzMDQuMjA3MDMxIEwgNTk1LjI2NTYyNSAzMDMuODEyNSBDIDYxMy42Mjg5MDYgMzAwLjA2MjUgNjI4LjI3MzQzOCAyODcuODUxNTYyIDYzMi4yMjI2NTYgMjY5LjM5MDYyNSBDIDYzOC4zNzg5MDYgMjQwLjQyOTY4OCA2MTUuMDExNzE5IDIzMi41MzEyNSA1OTAuNTYyNSAyMzIuMzMyMDMxIEwgNTI5Ljk0MTQwNiAyMzIuMzMyMDMxIEwgNDk5LjU2NjQwNiAzNzQuODk4NDM4IEwgNTMwLjE3MTg3NSAzNzQuODk4NDM4IFogTSA3MTkuNDYwOTM4IDMxMC41MjczNDQgQyA3MjQuNjI4OTA2IDI4Ny4yMjY1NjIgNzA4LjkyOTY4OCAyNzIuODEyNSA2ODMuNjU2MjUgMjcyLjgxMjUgQyA2NTQuMjY1NjI1IDI3Mi44MTI1IDYzMy44NjMyODEgMjk5LjA3NDIxOSA2MjguMjY5NTMxIDMyNS4zMzU5MzggQyA2MjIuNjcxODc1IDM1MS41OTc2NTYgNjMxLjg4NjcxOSAzNzcuODU5Mzc1IDY2MS4zMDg1OTQgMzc3Ljg1OTM3NSBDIDY4OC41NTg1OTQgMzc3Ljg1OTM3NSA3MDcuMDg1OTM4IDM2NC4wMzkwNjIgNzEzLjQzNzUgMzM4Ljc2MTcxOSBMIDY4NC42MDkzNzUgMzM4Ljc2MTcxOSBDIDY4Mi42OTkyMTkgMzQ2Ljg1OTM3NSA2NzYuOTQxNDA2IDM1OC4xMTMyODEgNjY1LjQ4ODI4MSAzNTguMTEzMjgxIEMgNjUyLjg1MTU2MiAzNTguMTEzMjgxIDY1OC4wMTk1MzEgMzMzLjAzNTE1NiA2NTkuMTM2NzE5IDMyMy45NTMxMjUgQyA2NjEuMTc5Njg4IDMxNi4yNTM5MDYgNjY2LjQ0MTQwNiAyOTIuNTU4NTk0IDY3OS4wODIwMzEgMjkyLjU1ODU5NCBDIDY5MC41MzEyNSAyOTIuNTU4NTk0IDY5MS43ODUxNTYgMzAyLjQyOTY4OCA2OTAuMjM4MjgxIDMxMC41MjczNDQgWiBNIDcxOS40NjA5MzggMzEwLjUyNzM0NCAiPjwvcGF0aD48L3N2Zz4=" alt="BikeRc">
+          <h1>Każdy ruch pod kontrolą.</h1>
+          <p>Uruchom kamerę, ustaw się bokiem i pokaż biodra, kolana oraz stopy. Szkielet i kąty stawów policzą się na żywo – obraz nie opuszcza Twojej przeglądarki.</p>
+          <button class="btn primary big" id="btn-empty-start">Uruchom kamerę</button>
+        </div>
+      </div>
+
+      <div class="bar" id="bar-facing">
+        <div class="field"><span>Kamera telefonu / laptopa</span>
+          <div class="seg lg" id="seg-facing" role="group" aria-label="Przednia lub tylna kamera">
+            <button data-f="environment" aria-pressed="false">📷 Tylna</button><button data-f="user" aria-pressed="true">🤳 Przednia</button>
+          </div></div>
+        <button class="btn" id="btn-flip2" style="align-self:flex-end">🔄 Przełącz</button>
+      </div>
+      <details class="fold-lite" id="c-set" open>
+        <summary>Ustawienia kamery i widoku</summary>
+      <div class="bar">
+        <label class="field grow" id="fld-cam" hidden><span>Kamera (urządzenie)</span>
+          <select id="sel-cam" aria-label="Wybór kamery"><option value="">Domyślna kamera</option></select></label>
+        <label class="field"><span>Rozdzielczość</span>
+          <select id="sel-res"><option value="640x480">640×480</option><option value="1280x720" selected>1280×720</option><option value="1920x1080">1920×1080</option></select></label>
+        <label class="field"><span>Model</span>
+          <select id="sel-model"><option value="lite">Lite (szybki)</option><option value="full">Full (dokładniejszy)</option></select></label>
+      </div>
+      <div class="bar">
+        <button class="btn primary" id="btn-cam">Uruchom kamerę</button>
+        <span id="lbl-file-wrap" style="display:contents"><label class="btn" for="file-video" id="lbl-file" style="cursor:pointer">Plik wideo…</label></span>
+        <input type="file" id="file-video" accept="video/*" hidden>
+        <button class="btn" id="btn-snap" disabled>📷 Zrzut PNG</button>
+        <span class="sep" style="width:1px;height:28px;margin:0 4px"></span>
+        <label class="switch"><input type="checkbox" id="chk-mirror" checked> Lustro</label>
+        <label class="switch"><input type="checkbox" id="chk-skel" checked> Szkielet</label>
+        <label class="switch"><input type="checkbox" id="chk-labels" checked> Kąty na obrazie</label>
+      </div>
+      </details>
+    </section>
+
+    <details class="card fold" id="c-angles" open>
+      <summary><h2>Kąty stawów <span class="sub" id="side-sub">kliknij kartę, aby pokazać wykres</span></h2></summary>
+      <div class="angles" id="angles"></div>
+    </details>
+
+    <details class="card fold" id="c-chart" open>
+      <summary><h2>Wykres w czasie</h2></summary>
+      <div class="bar" style="margin:0 0 12px">
+        <div class="tabs" id="tabs"></div>
+        <span style="flex:1"></span>
+        <div class="seg" id="seg-win" role="group" aria-label="Okno czasu">
+          <button data-w="5" aria-pressed="false">5 s</button><button data-w="10" aria-pressed="true">10 s</button><button data-w="30" aria-pressed="false">30 s</button>
+        </div>
+      </div>
+      <div class="chartwrap"><canvas id="main-chart"></canvas></div>
+      <div class="bar" style="margin-top:12px"><div class="legend" id="legend"></div></div>
+    </details>
+
+    <details class="card fold" id="c-stats" open>
+      <summary><h2>Zakresy ruchu w sesji <span class="sub" id="stats-sub">min / max / zakres od ostatniego resetu</span>
+        <button class="btn small" id="btn-reset" style="margin-left:12px">Resetuj</button></h2></summary>
+      <div class="tablewrap"><table id="stats"></table></div>
+      <p class="note">Kąty liczone w płaszczyźnie obrazu (2D) – najlepiej ustawić kamerę prostopadle do osi roweru, na wysokości biodra. Kąt kolana: 180° = pełny wyprost. Kąt tułowia = nachylenie linii bark–biodro od poziomu.</p>
+    </details>
+  </div>
+
+  <aside class="col">
+    <details class="card fold" id="c-measure" open>
+      <summary><h2>Pomiar</h2></summary>
+      <label class="field" style="margin-bottom:10px"><span>Klient</span><input type="text" id="in-client" placeholder="np. Jan Kowalski" autocomplete="off"></label>
+      <label class="field"><span>Rower</span><input type="text" id="in-bike" placeholder="np. Canyon Aeroad, rozm. M" autocomplete="off"></label>
+      <div class="sep"></div>
+      <div style="color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase">Czas pomiaru</div>
+      <div class="timer" id="timer">00:00</div>
+      <div class="stack" style="margin-top:12px">
+        <button class="btn primary big" id="btn-rec" disabled>▶ Rozpocznij pomiar</button>
+      </div>
+      <label class="switch" style="margin-top:12px"><input type="checkbox" id="chk-lm" checked> Zapisuj współrzędne punktów (JSON)</label>
+      <div class="kv">
+        <div><span>Próbek</span><b id="kv-n">0</b></div>
+        <div><span>Kadencja*</span><b id="kv-cad">–</b></div>
+        <div><span>Śr. wyprost kolana*</span><b id="kv-peak">–</b></div>
+        <div><span>Strona</span><b id="kv-side">–</b></div>
+      </div>
+      <p class="note">*Szacunek z cykli zgięcia/wyprostu kolana (ostatnie ~20 s) – przy pedałowaniu odpowiada obr./min i kątowi w dolnym martwym punkcie.</p>
+    </details>
+
+    <details class="card fold" id="c-side" open>
+      <summary><h2>Strona ciała</h2></summary>
+      <div class="seg" id="seg-side" role="group" aria-label="Strona" style="display:flex">
+        <button data-s="auto" aria-pressed="true" style="flex:1">Auto</button>
+        <button data-s="L" aria-pressed="false" style="flex:1">Lewa</button>
+        <button data-s="R" aria-pressed="false" style="flex:1">Prawa</button>
+        <button data-s="both" aria-pressed="false" style="flex:1">Obie</button>
+      </div>
+      <p class="note" style="margin-top:10px"><b style="color:var(--left)">■</b> lewa strona ciała (turkus) &nbsp; <b style="color:var(--right)">■</b> prawa strona (żółty). „Auto” wybiera stronę lepiej widoczną dla kamery.</p>
+    </details>
+
+    <details class="card fold" id="c-export" open>
+      <summary><h2>Eksport</h2></summary>
+      <div class="stack">
+        <button class="btn" id="btn-csv" disabled>⬇ CSV – szczegółowy</button>
+        <button class="btn" id="btn-csv2" disabled>⬇ CSV – format /pomiary (angle_0…11)</button>
+        <button class="btn primary" id="btn-pdf" disabled>📄 Raport PDF</button>
+        <button class="btn" id="btn-json" disabled>⬇ JSON – pełny pomiar</button>
+      </div>
+      <p class="note" id="export-note">Eksport aktywuje się po zakończeniu pomiaru.</p>
+    </details>
+
+    <details class="card fold" id="c-tips" open>
+      <summary><h2>Jak ustawić kadr</h2></summary>
+      <ul class="tips">
+        <li>Kamera z boku, prostopadle do roweru, na wysokości biodra.</li>
+        <li>Całe ciało w kadrze, dobre światło, jednolite tło.</li>
+        <li>Obcisła odzież – widoczne biodro, kolano i kostka.</li>
+        <li>Zostaw kilka obrotów korby przed odczytem min/max.</li>
+        <li>Na telefonie: oprzyj lub postaw telefon (tylna kamera) i uruchom pomiar przyciskiem na dole ekranu.</li>
+        <li id="tip-ios" hidden>iPhone / iPad: Udostępnij → „Dodaj do ekranu początkowego”, aby uruchamiać aplikację jak zwykłą.</li>
+      </ul>
+    </details>
+  </aside>
+</main>
+<footer>
+  <span>© BikeRc · Motion – prototyp. Wartości orientacyjne, nie zastępują oceny fittera.</span>
+  <span>Pozy: MediaPipe PoseLandmarker · przetwarzanie lokalne w przeglądarce</span>
+</footer>
+<nav id="dock" aria-label="Sterowanie pomiarem">
+  <button class="btn grow1" id="d-cam">📷 Kamera</button>
+  <button class="btn primary grow2" id="d-rec" disabled>● Start pomiaru</button>
+  <button class="btn ico" id="d-flip" aria-label="Przełącz kamerę przód/tył">🔄</button>
+  <button class="btn ico" id="d-fs" aria-label="Pełny ekran" disabled>⛶</button>
+</nav>
+<div id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="panel">
+    <h3 id="sheet-title">Plik gotowy</h3>
+    <p class="nm" id="sheet-name"></p>
+    <button class="btn primary" id="sh-share" hidden>↗ Udostępnij / zapisz…</button>
+    <a class="btn" id="sh-open" target="_blank" rel="noopener">Otwórz</a>
+    <a class="btn" id="sh-dl">⬇ Pobierz</a>
+    <button class="btn" id="sh-close">Zamknij</button>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+const MP_VER='0.10.21';
+const JSPDF_VER='2.5.2';
+const CDN={
+  lib:`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/vision_bundle.mjs`,
+  wasm:`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`,
+  model:m=>`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${m}/float16/latest/pose_landmarker_${m}.task`};
+const LOCAL={lib:'./assets/mediapipe/vision_bundle.mjs',wasm:'./assets/mediapipe/wasm',model:m=>`./assets/mediapipe/pose_landmarker_${m}.task`};
+const LOGO_URI='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjEyNCAyMjYgNjA2IDE1NiIgd2lkdGg9IjYwNiIgaGVpZ2h0PSIxNTYiPjx0aXRsZT5CaWtlUmM8L3RpdGxlPjxwYXRoIGZpbGw9IiMyRUM0QjYiIGZpbGwtcnVsZT0ibm9uemVybyIgZD0iTSAxNjMuNTU0Njg4IDM1MS4yMDMxMjUgTCAxNzEuNjE3MTg4IDMxMy4yODkwNjIgTCAxOTUuNTQyOTY5IDMxMy4yODkwNjIgQyAyMDkuOTU3MDMxIDMxMy4yODkwNjIgMjE5LjMwMDc4MSAzMTUuODU5Mzc1IDIxNS43ODEyNSAzMzIuMjQ2MDk0IEMgMjEyLjI5Mjk2OSAzNDguNjM2NzE5IDIwMS44OTQ1MzEgMzUxLjIwMzEyNSAxODcuNDQ1MzEyIDM1MS4yMDMxMjUgWiBNIDE3Ni42ODM1OTQgMjg5LjU5NzY1NiBMIDE4My44MjQyMTkgMjU2LjAyNzM0NCBMIDIwNy43MTg3NSAyNTYuMDI3MzQ0IEMgMjIwLjU4NTkzOCAyNTYuMDI3MzQ0IDIyNi41NDI5NjkgMjYxLjM1OTM3NSAyMjQuMTA1NDY5IDI3Mi44MTI1IEMgMjIxLjY3MTg3NSAyODQuMjY1NjI1IDIxMy40MTAxNTYgMjg5LjU5NzY1NiAyMDAuNTc4MTI1IDI4OS41OTc2NTYgWiBNIDE4MS44MTY0MDYgMzc0Ljg5ODQzOCBDIDIwMy40MDYyNSAzNzYuNDc2NTYyIDI0MS4xMjEwOTQgMzY2LjIxMDkzOCAyNDcuMTQ0NTMxIDMzNy45NzI2NTYgQyAyNTEuNTg1OTM4IDMxNy4wNDI5NjkgMjQwLjgyNDIxOSAzMDQuNjAxNTYyIDIyMy42Nzk2ODggMzAwLjg1MTU2MiBMIDIyMy43NDYwOTQgMzAwLjQ1NzAzMSBDIDIzOC45NDkyMTkgMjk1LjcxODc1IDI1Mi4xMTMyODEgMjg0Ljg1NTQ2OSAyNTUuNDM3NSAyNjkuMjU3ODEyIEMgMjYxLjM5NDUzMSAyNDEuNDE3OTY5IDIzNy42MDE1NjIgMjMwLjc1MzkwNiAyMTEuODAwNzgxIDIzMi4zMzIwMzEgTCAxNTguMjg5MDYyIDIzMi4zMzIwMzEgTCAxMjcuOTE0MDYyIDM3NC44OTg0MzggWiBNIDI3MS43MTg3NSAyNzUuNzczNDM4IEwgMjUwLjU5Mzc1IDM3NC44OTg0MzggTCAyODAuMjEwOTM4IDM3NC44OTg0MzggTCAzMDEuMzA0Njg4IDI3NS43NzM0MzggWiBNIDI3OS45ODA0NjkgMjMyLjMzMjAzMSBMIDI3NC41NTA3ODEgMjU3LjgwNDY4OCBMIDMwNi4xNDQ1MzEgMjU3LjgwNDY4OCBMIDMxMS41MzkwNjIgMjMyLjMzMjAzMSBaIE0gMzU3LjgwNDY4OCAyMzIuMzMyMDMxIEwgMzI4LjIxODc1IDIzMi4zMzIwMzEgTCAyOTcuODQzNzUgMzc0Ljg5ODQzOCBMIDMyNy40NjA5MzggMzc0Ljg5ODQzOCBMIDMzOC45NDkyMTkgMzIwLjk5MjE4OCBMIDMzOS40MTAxNTYgMzIwLjU5NzY1NiBMIDM1Ny42NzE4NzUgMzc0Ljg5ODQzOCBMIDM5Mi4yMjY1NjIgMzc0Ljg5ODQzOCBMIDM2OC4wMDc4MTIgMzE4LjAzMTI1IEwgNDExLjQxNDA2MiAyNzQuNTg5ODQ0IEwgMzc4LjQzNzUgMjc0LjU4OTg0NCBMIDM0MC4zMjgxMjUgMzE2LjI1MzkwNiBMIDM0MC4wMzUxNTYgMzE1Ljg1OTM3NSBaIE0gNDk4Ljg4MjgxMiAzMzMuMjM0Mzc1IEMgNTAwLjI2MTcxOSAzMjYuNzE4NzUgNTAxLjYxMzI4MSAzMjAuMzk4NDM4IDUwMi4xNDA2MjUgMzE0LjI3NzM0NCBDIDUwMi42OTkyMTkgMzA3Ljk2MDkzOCA1MDIuNTY2NDA2IDMwMi4wMzUxNTYgNTAwLjk4ODI4MSAyOTYuNTA3ODEyIEMgNDk2LjQxNDA2MiAyNzkuMTI4OTA2IDQ4Mi4zNTkzNzUgMjcyLjgxMjUgNDYzLjgwMDc4MSAyNzIuODEyNSBDIDQzMy41ODk4NDQgMjcyLjgxMjUgNDExLjM0Mzc1IDI5NS43MTg3NSA0MDQuOTkyMTg4IDMyNS41MzEyNSBDIDM5Ny45MTQwNjIgMzU4LjcwNzAzMSA0MDcuNDU3MDMxIDM3Ny44NTkzNzUgNDQxLjQyMTg3NSAzNzcuODU5Mzc1IEMgNDY0LjUyMzQzOCAzNzcuODU5Mzc1IDQ4NS4zODY3MTkgMzY5Ljc2MTcxOSA0OTMuMTU2MjUgMzQ1LjI3NzM0NCBMIDQ2Ni41MzEyNSAzNDUuMjc3MzQ0IEMgNDYxLjgyNDIxOSAzNTQuMzYzMjgxIDQ1NS45MDIzNDQgMzU4LjExMzI4MSA0NDUuNjMyODEyIDM1OC4xMTMyODEgQyA0MzAuMzk4NDM4IDM1OC4xMTMyODEgNDMxLjE4NzUgMzQ2LjA3MDMxMiA0MzMuOTE3OTY5IDMzMy4yMzQzNzUgWiBNIDQzOC4xMjg5MDYgMzEzLjQ4ODI4MSBDIDQ0MC44MjgxMjUgMzAyLjYyODkwNiA0NDUuOTY0ODQ0IDI5Mi41NTg1OTQgNDU5LjU4NTkzOCAyOTIuNTU4NTk0IEMgNDc0IDI5Mi41NTg1OTQgNDc0LjgyNDIxOSAzMDIuNjI4OTA2IDQ3Mi41MTk1MzEgMzEzLjQ4ODI4MSBaIE0gNTU1LjQ4MDQ2OSAyNTYuMDI3MzQ0IEwgNTgxLjE0ODQzOCAyNTYuMDI3MzQ0IEMgNTk0LjU0Mjk2OSAyNTYuMjI2NTYyIDYwMS4zMjAzMTIgMjYxLjUyMzQzOCA1OTguNjU2MjUgMjc0LjA5Mzc1IEMgNTk1Ljk1NzAzMSAyODYuNjY3OTY5IDU4Ni42NDQ1MzEgMjkzLjM0NzY1NiA1NzMuMTUyMzQ0IDI5My41NDY4NzUgTCA1NDcuNDgwNDY5IDI5My41NDY4NzUgWiBNIDU0Mi40NDUzMTIgMzE3LjIzODI4MSBMIDU3NC44MjgxMjUgMzE3LjIzODI4MSBDIDU4NC44MzU5MzggMzE3LjYzNjcxOSA1ODQuNDcyNjU2IDMyOC41MjczNDQgNTgzLjU4MjAzMSAzMzYuNDYwOTM4IEMgNTgyLjIzNDM3NSAzNDkuMzU5Mzc1IDU4MC44NTE1NjIgMzYyLjIyNjU2MiA1ODAuNzE4NzUgMzc0Ljg5ODQzOCBMIDYxNC40ODQzNzUgMzc0Ljg5ODQzOCBDIDYxMC40Mzc1IDM2NyA2MTIuODM5ODQ0IDM1MC4xNDg0MzggNjEzLjM5ODQzOCAzNDEuMDM1MTU2IEMgNjE1LjA0Njg3NSAzMjEuMTg3NSA2MTguMTQwNjI1IDMwNi43NzM0MzggNTk1LjE5OTIxOSAzMDQuMjA3MDMxIEwgNTk1LjI2NTYyNSAzMDMuODEyNSBDIDYxMy42Mjg5MDYgMzAwLjA2MjUgNjI4LjI3MzQzOCAyODcuODUxNTYyIDYzMi4yMjI2NTYgMjY5LjM5MDYyNSBDIDYzOC4zNzg5MDYgMjQwLjQyOTY4OCA2MTUuMDExNzE5IDIzMi41MzEyNSA1OTAuNTYyNSAyMzIuMzMyMDMxIEwgNTI5Ljk0MTQwNiAyMzIuMzMyMDMxIEwgNDk5LjU2NjQwNiAzNzQuODk4NDM4IEwgNTMwLjE3MTg3NSAzNzQuODk4NDM4IFogTSA3MTkuNDYwOTM4IDMxMC41MjczNDQgQyA3MjQuNjI4OTA2IDI4Ny4yMjY1NjIgNzA4LjkyOTY4OCAyNzIuODEyNSA2ODMuNjU2MjUgMjcyLjgxMjUgQyA2NTQuMjY1NjI1IDI3Mi44MTI1IDYzMy44NjMyODEgMjk5LjA3NDIxOSA2MjguMjY5NTMxIDMyNS4zMzU5MzggQyA2MjIuNjcxODc1IDM1MS41OTc2NTYgNjMxLjg4NjcxOSAzNzcuODU5Mzc1IDY2MS4zMDg1OTQgMzc3Ljg1OTM3NSBDIDY4OC41NTg1OTQgMzc3Ljg1OTM3NSA3MDcuMDg1OTM4IDM2NC4wMzkwNjIgNzEzLjQzNzUgMzM4Ljc2MTcxOSBMIDY4NC42MDkzNzUgMzM4Ljc2MTcxOSBDIDY4Mi42OTkyMTkgMzQ2Ljg1OTM3NSA2NzYuOTQxNDA2IDM1OC4xMTMyODEgNjY1LjQ4ODI4MSAzNTguMTEzMjgxIEMgNjUyLjg1MTU2MiAzNTguMTEzMjgxIDY1OC4wMTk1MzEgMzMzLjAzNTE1NiA2NTkuMTM2NzE5IDMyMy45NTMxMjUgQyA2NjEuMTc5Njg4IDMxNi4yNTM5MDYgNjY2LjQ0MTQwNiAyOTIuNTU4NTk0IDY3OS4wODIwMzEgMjkyLjU1ODU5NCBDIDY5MC41MzEyNSAyOTIuNTU4NTk0IDY5MS43ODUxNTYgMzAyLjQyOTY4OCA2OTAuMjM4MjgxIDMxMC41MjczNDQgWiBNIDcxOS40NjA5MzggMzEwLjUyNzM0NCAiPjwvcGF0aD48L3N2Zz4=';
+const $=id=>document.getElementById(id);
+const qs=new URLSearchParams(location.search);
+const UA=navigator.userAgent;
+const IS_IOS=/iPad|iPhone|iPod/.test(UA)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const IS_MOBILE=IS_IOS||/Android|Mobi/i.test(UA)||qs.get('mobile')==='1';
+const MOBILE_MQ='(max-width:900px), (max-height:520px) and (orientation:landscape)';
+const isMobileLayout=()=>matchMedia(MOBILE_MQ).matches;
+const MAXSIDE=IS_MOBILE?960:1920;     // maks. dłuższy bok płótna analizy
+const DPR_CAP=IS_MOBILE?1.5:2;
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+
+/* ---------- definicje ---------- */
+const JOINTS=[
+  {id:'knee',pl:'Kolano',ref:[140,155],def:[60,180]},
+  {id:'hip',pl:'Biodro',def:[40,180]},
+  {id:'elbow',pl:'Łokieć',def:[60,180]},
+  {id:'shoulder',pl:'Bark',def:[0,120]},
+  {id:'ankle',pl:'Kostka',def:[60,150]},
+  {id:'torso',pl:'Tułów',def:[0,90],hint:'nachylenie od poziomu'}];
+const IDX={L:{sh:11,el:13,wr:15,ix:19,hip:23,kn:25,an:27,ft:31},R:{sh:12,el:14,wr:16,ix:20,hip:24,kn:26,an:28,ft:32}};
+const SIDE_COL={L:'#2EC4B6',R:'#FEDA75'};
+const SIDE_PL={L:'Lewa',R:'Prawa',both:'Obie'};
+// indeksy kolumn angle_N używane w systemie /pomiary (prawa strona parzysta, lewa nieparzysta)
+const COMPAT=[['shoulder','R'],['shoulder','L'],['elbow','R'],['elbow','L'],['wrist','R'],['wrist','L'],['hip','R'],['hip','L'],['knee','R'],['knee','L'],['ankle','R'],['ankle','L']];
+const BONES=[[11,12],[11,23],[12,24],[23,24],[11,13],[13,15],[12,14],[14,16],[23,25],[25,27],[27,29],[29,31],[27,31],[24,26],[26,28],[28,30],[30,32],[28,32]];
+const sideOfIdx=i=>i===0?null:(i%2===1?'L':'R');
+const VIS_MIN=0.45;
+
+/* ---------- stan ---------- */
+const S={lib:null,landmarker:null,modelName:'lite',delegate:'GPU',running:false,source:null,stream:null,fileUrl:null,
+  side:'auto',autoSide:'R',visEma:{L:.5,R:.5},mirror:true,skel:true,labels:true,sel:'knee',win:10,
+  series:[],stats:{},ema:{},lastSeen:{},t0:0,lastVT:-1,lastTs:0,fpsN:0,fpsT:0,fps:0,inferMs:0,nPose:0,lastPoseT:0,
+  rec:null,last:null,cad:null,raf:0,errCount:0,
+  facing:IS_MOBILE?'environment':'user',camFacing:null,permitted:false,wake:null,vw:0,vh:0,interval:0,lastInfer:0,lastLm:null,lastVals:null};
+const video=$('video'),canvas=$('view'),ctx=canvas.getContext('2d');
+
+/* ---------- UI helpers ---------- */
+let toastT;
+function toast(msg,err=false,ms=4500){const t=$('toast');t.textContent=msg;t.className='show'+(err?' err':'');clearTimeout(toastT);toastT=setTimeout(()=>t.className='',ms)}
+function pill(txt,cls){const p=$('pill-model');p.className='pill '+(cls||'');$('pill-model-t').textContent=txt}
+const fmt=(v,d=0)=>v==null||!isFinite(v)?'–':v.toFixed(d);
+const mmss=s=>{s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+const activeSides=()=>S.side==='both'?['L','R']:[S.side==='auto'?S.autoSide:S.side];
+
+/* ---------- MediaPipe ---------- */
+async function loadLib(){
+  if(S.lib) return S.lib;
+  const order=qs.get('mp')==='local'?[LOCAL,CDN]:[CDN,LOCAL];
+  let lastErr;
+  for(const src of order){
+    try{ const mod=await import(src.lib); S.libSrc=src; S.lib=mod; return mod; }catch(e){lastErr=e; console.warn('Nie udało się załadować biblioteki z',src.lib,e)}
+  }
+  throw lastErr;
+}
+async function initModel(name=S.modelName,delegate=S.delegate){
+  pill('Model: ładowanie…','warn');
+  try{
+    const lib=await loadLib();
+    const order=S.libSrc===LOCAL?[LOCAL,CDN]:[CDN,LOCAL];
+    const {PoseLandmarker,FilesetResolver}=lib;
+    let landmarker=null,lastErr;
+    for(const src of order){
+      try{
+        const fileset=await FilesetResolver.forVisionTasks(src.wasm);
+        landmarker=await PoseLandmarker.createFromOptions(fileset,{
+          baseOptions:{modelAssetPath:src.model(name),delegate},
+          runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5});
+        S.modelSrc=src===CDN?'CDN':'lokalnie';break;
+      }catch(e){lastErr=e;console.warn('Model/wasm z',src.wasm,'niedostępny:',e)}
+    }
+    if(!landmarker) throw lastErr;
+    S.landmarker?.close?.(); S.landmarker=landmarker; S.modelName=name; S.delegate=delegate;
+    pill(`Model: ${name==='lite'?'Lite':'Full'} · ${delegate}`,'ok');
+    return true;
+  }catch(e){
+    console.error(e);
+    if(delegate==='GPU'){ console.warn('Przełączam na CPU'); return initModel(name,'CPU'); }
+    pill('Model: błąd ładowania','err');
+    toast('Nie udało się załadować modelu pozy. Sprawdź połączenie z internetem i odśwież stronę.',true,9000);
+    return false;
+  }
+}
+let modelPromise=initModel();
+
+/* ---------- kamera ---------- */
+function secureOk(){return window.isSecureContext||location.protocol==='file:'}
+function showHttpsWarn(){
+  const w=$('https-warn'); if(secureOk()){w.hidden=true;return}
+  w.hidden=false;
+  w.innerHTML='<b>Kamera wymaga połączenia HTTPS.</b> Ta strona jest otwarta przez niezabezpieczone połączenie ('+location.protocol+'//'+location.host+'), więc przeglądarka (zwłaszcza na telefonie) zablokuje kamerę. Otwórz aplikację pod adresem <b>https://…</b> (np. po wdrożeniu na hosting z HTTPS) albo uruchom ją lokalnie na <b>localhost</b>. Adres typu <i>http://192.168…</i> nie zadziała.';
+}
+showHttpsWarn();
+async function listCams(){
+  try{
+    const sel=$('sel-cam'); if(!navigator.mediaDevices?.enumerateDevices) return;
+    const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+    const cur=sel.value;
+    sel.innerHTML='<option value="">Automatycznie ('+(S.facing==='environment'?'tylna':'przednia')+')</option>'+devs.map((d,i)=>`<option value="${d.deviceId}">${(d.label||('Kamera '+(i+1))).replace(/</g,'&lt;')}</option>`).join('');
+    if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+    // etykiety/lista urządzeń są wiarygodne dopiero po przyznaniu zgody
+    $('fld-cam').hidden=!(S.permitted&&devs.length>1);
+  }catch(e){console.warn(e)}
+}
+navigator.mediaDevices?.addEventListener?.('devicechange',listCams);
+
+function camError(e){
+  const n=e&&e.name;
+  if(!navigator.mediaDevices?.getUserMedia) return secureOk()?'Ta przeglądarka nie obsługuje dostępu do kamery. Spróbuj Chrome (Android) lub Safari (iOS 14.3+).':'Kamera działa tylko przez HTTPS (lub localhost). Otwórz aplikację pod adresem https://…';
+  if(n==='NotAllowedError'||n==='SecurityError') return 'Brak zgody na użycie kamery. Zezwól na dostęp w ustawieniach przeglądarki (ikona kłódki / Ustawienia witryny) i spróbuj ponownie.';
+  if(n==='NotFoundError'||n==='OverconstrainedError') return 'Nie znaleziono kamery spełniającej wymagania. Wybierz inną kamerę lub niższą rozdzielczość.';
+  if(n==='NotReadableError'||n==='AbortError') return 'Kamera jest zajęta przez inną aplikację albo nie odpowiada. Zamknij inne programy/karty korzystające z kamery.';
+  return 'Nie można uzyskać dostępu do kamery: '+(e&&e.message||n||'nieznany błąd');
+}
+// kolejne zestawy ograniczeń: od najlepszego do najprostszego
+function constraintSets(){
+  const [w,h]=$('sel-res').value.split('x').map(Number);
+  const id=$('sel-cam').value, fr={frameRate:{ideal:30,max:30}};
+  const sets=[];
+  if(id) sets.push({deviceId:{exact:id},width:{ideal:w},height:{ideal:h},...fr});
+  else sets.push({facingMode:{ideal:S.facing},width:{ideal:w},height:{ideal:h},...fr});
+  if(IS_MOBILE&&w>1280) sets.push({facingMode:{ideal:S.facing},width:{ideal:1280},height:{ideal:720},...fr});
+  sets.push({facingMode:{ideal:S.facing},width:{ideal:640},height:{ideal:480}});
+  sets.push({facingMode:{ideal:S.facing}});
+  sets.push(true);
+  return sets;
+}
+async function getStream(){
+  let last;
+  for(const v of constraintSets()){
+    try{ return await navigator.mediaDevices.getUserMedia({video:v,audio:false}) }
+    catch(e){ last=e; console.warn('getUserMedia',JSON.stringify(v),e.name,e.message);
+      if(e.name==='NotAllowedError'||e.name==='SecurityError'||(e.name==='NotFoundError'&&v===true)) throw e;
+      if(e.name==='NotFoundError') continue; }
+  }
+  throw last;
+}
+function syncFacingUI(){document.querySelectorAll('#seg-facing button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.f===S.facing))}
+const effMirror=()=>$('chk-mirror').checked&&S.source==='camera'&&S.camFacing!=='environment';
+
+async function startCamera(){
+  stopAll(true);
+  showHttpsWarn();
+  if(!navigator.mediaDevices?.getUserMedia){toast(camError(),true,9000);return}
+  setBusy(true);
+  try{
+    const stream=await getStream();
+    S.stream=stream; S.source='camera'; S.permitted=true;
+    const tr=stream.getVideoTracks()[0], st=tr?.getSettings?.()||{};
+    S.camFacing=st.facingMode||($('sel-cam').value?'user':S.facing);
+    tr?.addEventListener('ended',()=>{ if(S.stream===stream&&!document.hidden){toast('Kamera została odłączona lub zatrzymana.',true,6000);stopAll(true)} });
+    video.muted=true; video.playsInline=true; video.setAttribute('playsinline',''); video.srcObject=stream; video.loop=false;
+    await video.play();
+    await listCams();
+    if(st.deviceId&&[...$('sel-cam').options].some(o=>o.value===st.deviceId)&&$('sel-cam').value) $('sel-cam').value=st.deviceId;
+    await beginTracking();
+  }catch(e){ console.error(e); toast(camError(e),true,10000); stopAll(true); }
+  setBusy(false);
+}
+async function setFacing(f,fromFlip){
+  if(S.rec){toast('Zakończ pomiar przed zmianą kamery.');return}
+  S.facing=f; $('sel-cam').value=''; syncFacingUI();
+  if(S.running&&S.source==='camera'){
+    await startCamera();
+    if(S.running&&S.camFacing&&S.camFacing!==f&&fromFlip) {S.facing=S.camFacing;syncFacingUI();toast('To urządzenie ma tylko jedną kamerę.')}
+  } else listCams();
+}
+const flipCamera=()=>setFacing(S.facing==='environment'?'user':'environment',true);
+function startFile(file){
+  stopAll(true);
+  S.fileUrl=URL.createObjectURL(file); S.source='file';
+  video.srcObject=null; video.src=S.fileUrl; video.loop=true; video.muted=true;
+  video.play().then(()=>beginTracking()).catch(e=>{toast('Nie można odtworzyć pliku wideo.',true);stopAll(true)});
+}
+async function beginTracking(){
+  const ok=await modelPromise;
+  if(!ok && !S.landmarker){ toast('Model pozy niedostępny – nie można rozpocząć analizy.',true); stopAll(true); return }
+  S.running=true; S.lastVT=-1; S.lastTs=0; S.errCount=0;
+  S.t0=performance.now()/1000; S.series=[]; resetStats(); S.cad=null;
+  S.mirror=effMirror(); S.lastLm=null; S.lastVals=null; S.lastInfer=0; S.interval=0;
+  fitCanvas();
+  $('empty').hidden=true; ['b-fps','b-res'].forEach(i=>$(i).hidden=false);
+  $('btn-cam').textContent='Zatrzymaj kamerę'; $('btn-cam').classList.remove('primary'); $('btn-cam').classList.add('danger');
+  $('btn-snap').disabled=false; $('btn-rec').disabled=false;
+  cancelAnimationFrame(S.raf); S.raf=requestAnimationFrame(loop);
+  requestWake(); syncDock();
+}
+function stopAll(silent){
+  if(S.rec) stopRecording();
+  S.running=false; cancelAnimationFrame(S.raf);
+  S.stream?.getTracks().forEach(t=>t.stop()); S.stream=null;
+  if(S.fileUrl){URL.revokeObjectURL(S.fileUrl);S.fileUrl=null}
+  video.pause(); video.srcObject=null; video.removeAttribute('src'); video.load();
+  $('empty').hidden=false; ['b-fps','b-res'].forEach(i=>$(i).hidden=true); $('nopose').style.display='none';
+  $('btn-cam').textContent='Uruchom kamerę'; $('btn-cam').classList.add('primary'); $('btn-cam').classList.remove('danger');
+  $('btn-snap').disabled=true; $('btn-rec').disabled=true;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  releaseWake(); if(isFs()) toggleFs(); syncDock();
+}
+function fitCanvas(){
+  const vw=video.videoWidth||1280,vh=video.videoHeight||720; S.vw=vw;S.vh=vh;
+  const sc=Math.min(1,MAXSIDE/Math.max(vw,vh)),cw=Math.round(vw*sc),ch=Math.round(vh*sc);
+  if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch}
+  $('stage').style.aspectRatio=`${cw}/${ch}`; $('b-res').textContent=`${vw}×${vh}`;
+}
+/* ekran nie gaśnie podczas pracy kamery */
+async function requestWake(){
+  try{ if('wakeLock' in navigator&&!S.wake&&!document.hidden){ const wl=await navigator.wakeLock.request('screen'); S.wake=wl; wl.addEventListener('release',()=>{if(S.wake===wl)S.wake=null}) } }catch(e){console.warn('wakeLock',e.name)}
+}
+function releaseWake(){ try{S.wake?.release?.()}catch(e){} S.wake=null }
+function setBusy(b){$('btn-cam').disabled=b;$('btn-empty-start').disabled=b; if(b){$('btn-cam').textContent='Uruchamianie…'}}
+
+/* ---------- geometria ---------- */
+function angleAt(a,b,c){ // kąt wewnętrzny w b
+  const v1x=a.x-b.x,v1y=a.y-b.y,v2x=c.x-b.x,v2y=c.y-b.y;
+  const d=Math.hypot(v1x,v1y)*Math.hypot(v2x,v2y); if(d<1e-6) return null;
+  const cos=Math.max(-1,Math.min(1,(v1x*v2x+v1y*v2y)/d)); return Math.acos(cos)*180/Math.PI;
+}
+function computeAngles(lm,w,h){
+  const P=i=>({x:lm[i].x*w,y:lm[i].y*h,v:lm[i].visibility??1});
+  const out={},vis={};
+  for(const s of ['L','R']){
+    const k=IDX[s],p={};for(const n in k)p[n]=P(k[n]);
+    const ok=(...n)=>n.every(x=>p[x].v>=VIS_MIN);
+    const set=(name,cond,fn)=>{out[name+'_'+s]=cond?fn():null};
+    set('knee',ok('hip','kn','an'),()=>angleAt(p.hip,p.kn,p.an));
+    set('hip',ok('sh','hip','kn'),()=>angleAt(p.sh,p.hip,p.kn));
+    set('elbow',ok('sh','el','wr'),()=>angleAt(p.sh,p.el,p.wr));
+    set('shoulder',ok('el','sh','hip'),()=>angleAt(p.el,p.sh,p.hip));
+    set('ankle',ok('kn','an','ft'),()=>angleAt(p.kn,p.an,p.ft));
+    set('wrist',ok('el','wr','ix'),()=>angleAt(p.el,p.wr,p.ix));
+    set('torso',ok('sh','hip'),()=>Math.atan2(Math.abs(p.sh.y-p.hip.y),Math.abs(p.sh.x-p.hip.x))*180/Math.PI);
+    vis[s]=(p.sh.v+p.hip.v+p.kn.v+p.an.v)/4;
+  }
+  return {raw:out,vis};
+}
+function smooth(raw,t){
+  const out={};
+  for(const k in raw){
+    const v=raw[k];
+    if(v==null){ if(S.lastSeen[k]!=null&&t-S.lastSeen[k]>.6) S.ema[k]=null; out[k]=S.ema[k]!=null&&t-S.lastSeen[k]<=.6?S.ema[k]:null; continue }
+    S.lastSeen[k]=t;
+    const p=S.ema[k]; S.ema[k]=p==null?v:p+.45*(v-p); out[k]=S.ema[k];
+  }
+  return out;
+}
+
+/* ---------- statystyki ---------- */
+function resetStats(){S.stats={};}
+function addStats(vals){
+  for(const k in vals){const v=vals[k]; if(v==null) continue;
+    const s=S.stats[k]||(S.stats[k]={n:0,sum:0,min:Infinity,max:-Infinity}); s.n++;s.sum+=v; if(v<s.min)s.min=v; if(v>s.max)s.max=v}
+}
+const statOf=(k,st=S.stats)=>{const s=st[k];return s&&s.n?{min:s.min,max:s.max,range:s.max-s.min,mean:s.sum/s.n,n:s.n}:null};
+
+/* kadencja / szczyty kąta kolana */
+function analyseCycles(){
+  const side=S.side==='both'?S.autoSide:activeSides()[0]; const key='knee_'+side;
+  const now=S.series.length?S.series[S.series.length-1].t:0;
+  const pts=S.series.filter(p=>p.t>=now-20&&p.v[key]!=null);
+  if(pts.length<25) return null;
+  const peaks=findPeaks(pts,key);
+  if(peaks.length<3) return null;
+  const rec=peaks.slice(-8); const iv=[];for(let i=1;i<rec.length;i++)iv.push(rec[i].t-rec[i-1].t);
+  iv.sort((a,b)=>a-b); const med=iv[Math.floor(iv.length/2)];
+  return {rpm:60/med,peak:rec.reduce((a,p)=>a+p.v,0)/rec.length,n:rec.length,side};
+}
+
+/* ---------- pętla ---------- */
+function loop(){
+  if(!S.running) return; S.raf=requestAnimationFrame(loop);
+  if(document.hidden||video.readyState<2||!video.videoWidth) return;
+  const vt=video.currentTime; if(vt===S.lastVT) return; S.lastVT=vt;
+  if(S.vw!==video.videoWidth||S.vh!==video.videoHeight) fitCanvas();   // obrót telefonu zmienia wymiary strumienia
+  const w=canvas.width,h=canvas.height,now=performance.now();
+  if(S.interval&&now-S.lastInfer<S.interval){ // ogranicznik: pokaż tylko obraz i ostatni szkielet
+    ctx.save(); if(S.mirror){ctx.translate(w,0);ctx.scale(-1,1)} ctx.drawImage(video,0,0,w,h); ctx.restore();
+    if(S.skel&&S.lastLm&&now-S.lastPoseT<400) drawPose(S.lastLm,S.lastVals,w,h);
+    return;
+  }
+  S.lastInfer=now;
+  let res=null;
+  try{
+    const ts=Math.max(now,S.lastTs+1); S.lastTs=ts;
+    const t1=performance.now(); res=S.landmarker.detectForVideo(video,ts); S.inferMs=S.inferMs*.9+(performance.now()-t1)*.1; S.errCount=0;
+  }catch(e){
+    console.warn('detect error',e);
+    if(++S.errCount===5&&S.delegate==='GPU'){ S.running=false; toast('Błąd GPU – przełączam na CPU…'); modelPromise=initModel(S.modelName,'CPU'); modelPromise.then(()=>{S.running=true;S.raf=requestAnimationFrame(loop)}); return }
+  }
+  // wideo (z lustrem)
+  ctx.save(); if(S.mirror){ctx.translate(w,0);ctx.scale(-1,1)} ctx.drawImage(video,0,0,w,h); ctx.restore();
+  // fps
+  S.fpsN++; if(now-S.fpsT>=1000){S.fps=S.fpsN*1000/(now-S.fpsT);S.fpsN=0;S.fpsT=now;S.interval=IS_MOBILE?(S.inferMs>60?80:40):(S.inferMs>80?60:0);$('b-fps').textContent=`${S.fps.toFixed(0)} FPS · ${S.inferMs.toFixed(0)} ms`}
+  const lm=res&&res.landmarks&&res.landmarks[0];
+  const t=now/1000-S.t0;
+  if(!lm){ if(now-S.lastPoseT>700) $('nopose').style.display='block'; return }
+  S.lastPoseT=now; $('nopose').style.display='none'; S.nPose++;
+  const {raw,vis}=computeAngles(lm,w,h);
+  for(const s of ['L','R']) S.visEma[s]+=.1*(vis[s]-S.visEma[s]);
+  const better=S.visEma.L>S.visEma.R+.04?'L':S.visEma.R>S.visEma.L+.04?'R':S.autoSide; S.autoSide=better;
+  const vals=smooth(raw,t); addStats(vals);
+  S.series.push({t,v:vals}); while(S.series.length&&t-S.series[0].t>65) S.series.shift();
+  if(S.rec){
+    const f={t:+(now/1000-S.rec.t0).toFixed(3),v:{...vals}};
+    if(S.rec.lm) f.lm=lm.map(p=>[+p.x.toFixed(4),+p.y.toFixed(4),+p.z.toFixed(4),+(p.visibility??0).toFixed(3)]);
+    S.rec.frames.push(f); addStatsTo(S.rec.stats,vals);
+  }
+  S.lastLm=lm; S.lastVals=vals;
+  if(S.skel) drawPose(lm,vals,w,h);
+  if(S.rec) captureKey(vals,now);
+}
+function addStatsTo(st,vals){for(const k in vals){const v=vals[k];if(v==null)continue;const s=st[k]||(st[k]={n:0,sum:0,min:Infinity,max:-Infinity});s.n++;s.sum+=v;if(v<s.min)s.min=v;if(v>s.max)s.max=v}}
+
+/* ---------- rysowanie szkieletu ---------- */
+function drawPose(lm,vals,w,h){
+  const sc=Math.max(.7,w/1000),act=activeSides();
+  const X=p=>(S.mirror?1-p.x:p.x)*w,Y=p=>p.y*h;
+  ctx.lineCap='round';ctx.lineJoin='round';
+  for(const [a,b] of BONES){
+    const A=lm[a],B=lm[b]; if((A.visibility??1)<.3||(B.visibility??1)<.3) continue;
+    const s=(sideOfIdx(a)===sideOfIdx(b))?sideOfIdx(a):null;
+    const on=!s||act.includes(s);
+    ctx.strokeStyle=s?SIDE_COL[s]:'#F2F4F3'; ctx.globalAlpha=on?.95:.28; ctx.lineWidth=(on?5:3)*sc;
+    ctx.beginPath();ctx.moveTo(X(A),Y(A));ctx.lineTo(X(B),Y(B));ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  for(let i=11;i<33;i++){const p=lm[i]; if((p.visibility??1)<.3) continue; const s=sideOfIdx(i),on=act.includes(s);
+    ctx.fillStyle='#1F1E1E';ctx.strokeStyle=SIDE_COL[s];ctx.globalAlpha=on?1:.35;ctx.lineWidth=3*sc;
+    ctx.beginPath();ctx.arc(X(p),Y(p),(on?6.5:4)*sc,0,7);ctx.fill();ctx.stroke()}
+  ctx.globalAlpha=1;
+  if(!S.labels) return;
+  const tri={knee:['hip','kn','an'],hip:['sh','hip','kn'],elbow:['sh','el','wr'],shoulder:['el','sh','hip'],ankle:['kn','an','ft']};
+  for(const s of act){
+    for(const j in tri){
+      const v=vals[j+'_'+s]; if(v==null) continue;
+      const [a,b,c]=tri[j].map(n=>lm[IDX[s][n]]);
+      const bx=X(b),by=Y(b),a1=Math.atan2(Y(a)-by,X(a)-bx),a2=Math.atan2(Y(c)-by,X(c)-bx);
+      let d=a2-a1; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI;
+      const r=30*sc; ctx.beginPath();ctx.moveTo(bx,by);ctx.arc(bx,by,r,a1,a1+d,d<0);ctx.closePath();
+      ctx.fillStyle=SIDE_COL[s]+'55';ctx.fill();ctx.strokeStyle=SIDE_COL[s];ctx.lineWidth=2*sc;ctx.stroke();
+      const mid=a1+d/2,lx=bx+Math.cos(mid)*(r+22*sc),ly=by+Math.sin(mid)*(r+22*sc);
+      label(`${v.toFixed(0)}°`,lx,ly,SIDE_COL[s],sc);
+    }
+  }
+}
+function label(txt,x,y,col,sc){
+  ctx.font=`800 ${Math.round(20*sc)}px Archivo,Arial,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  const tw=ctx.measureText(txt).width+12*sc,th=26*sc;
+  ctx.fillStyle='rgba(31,30,30,.82)';ctx.beginPath();ctx.roundRect?ctx.roundRect(x-tw/2,y-th/2,tw,th,6*sc):ctx.rect(x-tw/2,y-th/2,tw,th);ctx.fill();
+  ctx.strokeStyle=col;ctx.lineWidth=1.5*sc;ctx.stroke();ctx.fillStyle='#F2F4F3';ctx.fillText(txt,x,y+1);
+}
+
+/* ---------- wykresy ---------- */
+function setupCanvas(c){const dpr=Math.min(window.devicePixelRatio||1,DPR_CAP),r=c.getBoundingClientRect();const W=Math.max(10,Math.round(r.width*dpr)),H=Math.max(10,Math.round(r.height*dpr));if(c.width!==W||c.height!==H){c.width=W;c.height=H}const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);return {g,w:r.width,h:r.height}}
+function drawChart(c,jointId,sides,win,opt={}){
+  const {g,w,h}=setupCanvas(c); g.clearRect(0,0,w,h);
+  const J=JOINTS.find(j=>j.id===jointId);
+  const now=S.series.length?S.series[S.series.length-1].t:0, t0=now-win;
+  const pts=S.series.filter(p=>p.t>=t0);
+  let lo=Infinity,hi=-Infinity;
+  for(const s of sides)for(const p of pts){const v=p.v[jointId+'_'+s];if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v)}}
+  if(!isFinite(lo)){lo=J.def[0];hi=J.def[1]}
+  const pad=opt.small?4:10; lo=Math.max(0,Math.floor((lo-pad)/10)*10); hi=Math.min(opt.maxY||190,Math.ceil((hi+pad)/10)*10);
+  if(hi-lo<(opt.small?30:40)){const m=(hi+lo)/2;lo=Math.max(0,m-(opt.small?15:20));hi=lo+(opt.small?30:40)}
+  const L=opt.small?0:40,R=opt.small?0:10,T=opt.small?2:10,B=opt.small?2:24;
+  const X=t=>L+(t-t0)/win*(w-L-R),Y=v=>T+(1-(v-lo)/(hi-lo))*(h-T-B);
+  if(!opt.small){
+    g.font='11px Inter,sans-serif';g.fillStyle='#7C8584';g.strokeStyle='#363434';g.lineWidth=1;g.textBaseline='middle';g.textAlign='right';
+    const step=(hi-lo)>100?30:(hi-lo)>50?20:10;
+    for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step){const y=Y(v);g.beginPath();g.moveTo(L,y);g.lineTo(w-R,y);g.stroke();g.fillText(v+'°',L-6,y)}
+    g.textAlign='center';g.textBaseline='top';
+    for(let s=0;s<=win;s+=win>10?5:1){const x=X(t0+s);g.fillText(s===win?'teraz':`−${win-s} s`,x,h-B+6)}
+    if(J.ref){g.fillStyle='rgba(46,196,182,.10)';const y1=Y(Math.min(J.ref[1],hi)),y2=Y(Math.max(J.ref[0],lo));if(y2>y1)g.fillRect(L,y1,w-L-R,y2-y1);g.fillStyle='rgba(46,196,182,.55)';g.textAlign='left';g.fillText(`orientacyjny zakres wyprostu ${J.ref[0]}–${J.ref[1]}°`,L+6,Math.max(T+2,y1+3))}
+  }
+  for(const s of sides){
+    const col=SIDE_COL[s],k=jointId+'_'+s;
+    const st=statOf(k);
+    if(!opt.small&&st){ [st.min,st.max].forEach(v=>{if(v<lo||v>hi)return;g.setLineDash([4,5]);g.strokeStyle=col+'66';g.lineWidth=1;g.beginPath();g.moveTo(L,Y(v));g.lineTo(w-R,Y(v));g.stroke()});g.setLineDash([]) }
+    g.strokeStyle=col;g.lineWidth=opt.small?1.6:2.4;g.lineJoin='round';g.beginPath();let pen=false,prevT=0;
+    for(const p of pts){const v=p.v[k];if(v==null){pen=false;continue}const x=X(p.t),y=Y(v);if(!pen||p.t-prevT>.5){g.moveTo(x,y);pen=true}else g.lineTo(x,y);prevT=p.t}
+    g.stroke();
+  }
+}
+
+/* ---------- panel kart i tabela ---------- */
+function buildStatic(){
+  $('angles').innerHTML=JOINTS.map(j=>`<button class="ang" data-j="${j.id}" aria-label="${j.pl}"><h3>${j.pl}${j.hint?` <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dim)">· ${j.hint}</span>`:''}</h3><div class="vals"></div><canvas></canvas></button>`).join('');
+  $('tabs').innerHTML=JOINTS.map(j=>`<button class="tab" data-j="${j.id}" aria-pressed="${j.id===S.sel}">${j.pl}</button>`).join('');
+  const rows=JOINTS.map(j=>`<tr data-j="${j.id}"><td>${j.pl}</td>${['L','R'].map(s=>`<td class="grp big" data-k="${j.id}_${s}_min"></td><td class="big" data-k="${j.id}_${s}_max"></td><td data-k="${j.id}_${s}_range"></td><td data-k="${j.id}_${s}_mean"></td>`).join('')}<td class="grp" data-k="${j.id}_asym"></td></tr>`).join('');
+  $('stats').innerHTML=`<thead><tr><th rowspan="2"></th><th class="L grp" colspan="4" style="text-align:center">Lewa</th><th class="R grp" colspan="4" style="text-align:center">Prawa</th><th class="grp"></th></tr><tr>${['L','R'].map(s=>['min','max','zakres','śr.'].map((x,i)=>`<th class="${s}${i===0?' grp':''}">${x}</th>`).join('')).join('')}<th class="grp">Δ zakresu L–P</th></tr></thead><tbody>${rows}</tbody>`;
+}
+buildStatic();
+function updatePanels(){
+  const act=activeSides(); const last=S.series.length?S.series[S.series.length-1].v:{};
+  syncDock();
+  const angOpen=$('c-angles').open,statOpen=$('c-stats').open;
+  if(angOpen) document.querySelectorAll('.ang').forEach(el=>{
+    const j=el.dataset.j; el.classList.toggle('sel',j===S.sel);
+    el.querySelector('.vals').innerHTML=act.map(s=>{const v=last[j+'_'+s],st=statOf(j+'_'+s);
+      return `<div class="row"><span class="s ${s}">${s==='L'?'L':'P'}</span><span class="val ${v==null?'na':''}">${v==null?'–':v.toFixed(0)}<small>°</small></span><span class="mm">${st?`${st.min.toFixed(0)}–${st.max.toFixed(0)}° · Δ${st.range.toFixed(0)}°`:'min–max'}</span></div>`}).join('');
+    drawChart(el.querySelector('canvas'),j,act,10,{small:true});
+  });
+  if(statOpen) document.querySelectorAll('#stats tbody tr').forEach(tr=>{
+    const j=tr.dataset.j; tr.classList.toggle('hl',j===S.sel);
+    const rg={};
+    for(const s of ['L','R']){const st=statOf(j+'_'+s); rg[s]=st?st.range:null;
+      for(const [n,f] of [['min','min'],['max','max'],['range','range'],['mean','mean']]){tr.querySelector(`[data-k="${j}_${s}_${n}"]`).textContent=st?st[f].toFixed(n==='mean'?1:0)+'°':'–'}}
+    tr.querySelector(`[data-k="${j}_asym"]`).textContent=rg.L!=null&&rg.R!=null?(rg.L-rg.R>0?'+':'')+(rg.L-rg.R).toFixed(0)+'°':'–';
+  });
+  const n=Math.max(0,...Object.values(S.stats).map(s=>s.n)); $('kv-n').textContent=S.rec?S.rec.frames.length:n;
+  $('kv-side').textContent=S.side==='auto'?`Auto (${S.autoSide==='L'?'lewa':'prawa'})`:SIDE_PL[S.side];
+  if(S.cad){$('kv-cad').textContent=Math.round(S.cad.rpm)+' /min';$('kv-peak').textContent=S.cad.peak.toFixed(0)+'°'}else{$('kv-cad').textContent='–';$('kv-peak').textContent='–'}
+  $('legend').innerHTML=act.map(s=>`<span><b style="background:${SIDE_COL[s]}"></b>${SIDE_PL[s]} – ${JOINTS.find(j=>j.id===S.sel).pl.toLowerCase()}</span>`).join('')+'<span style="color:var(--dim)">linie przerywane: min / max sesji</span>';
+}
+function renderMain(){drawChart($('main-chart'),S.sel,activeSides(),S.win)}
+setInterval(()=>{ if(document.hidden) return; if(S.running){S.cad=analyseCycles()} updatePanels(); },IS_MOBILE?250:150);
+let lastR=0;
+(function anim(t){ requestAnimationFrame(anim); if(document.hidden||!$('c-chart').open) return; if(IS_MOBILE&&t-lastR<66) return; lastR=t; renderMain() })(0);
+if(window.ResizeObserver) new ResizeObserver(()=>{if($('c-chart').open)renderMain();updatePanels()}).observe($('main-chart'));
+
+/* ---------- nagrywanie ---------- */
+let recTick;
+function startRecording(){
+  if(!S.running) return;
+  resetStats(); S.series=[]; S.t0=performance.now()/1000;
+  S.rec={t0:performance.now()/1000,startedAt:new Date(),frames:[],stats:{},lm:$('chk-lm').checked,
+    client:$('in-client').value.trim(),bike:$('in-bike').value.trim()};
+  $('btn-rec').textContent='⏹ Zakończ pomiar'; $('btn-rec').classList.remove('primary'); $('btn-rec').classList.add('danger');
+  $('b-rec').hidden=false; $('timer').classList.add('on'); disableExports(true);
+  recTick=setInterval(()=>{const d=performance.now()/1000-S.rec.t0;$('timer').textContent=mmss(d);$('b-rec').textContent='REC '+mmss(d);syncDock()},200);
+  syncDock(); toast('Pomiar rozpoczęty – statystyki min/max zostały zresetowane.');
+}
+function stopRecording(){
+  if(!S.rec) return; clearInterval(recTick);
+  const r=S.rec; r.dur=performance.now()/1000-r.t0; r.endedAt=new Date(); S.rec=null; S.last=r;
+  $('btn-rec').textContent='▶ Rozpocznij pomiar'; $('btn-rec').classList.add('primary'); $('btn-rec').classList.remove('danger');
+  $('b-rec').hidden=true; $('timer').classList.remove('on'); $('timer').textContent=mmss(r.dur);
+  disableExports(r.frames.length===0);
+  $('export-note').textContent=r.frames.length?`Pomiar: ${r.frames.length} próbek, ${r.dur.toFixed(1)} s${r.client?' · '+r.client:''}.`:'Nie zarejestrowano żadnych próbek (brak sylwetki w kadrze).';
+  if(r.frames.length) loadPdfLib().catch(()=>{});
+  syncDock(); if(r.frames.length) toast(`Pomiar zakończony: ${r.frames.length} próbek. Możesz pobrać dane.`);
+}
+function disableExports(d){['btn-pdf','btn-csv','btn-csv2','btn-json'].forEach(i=>$(i).disabled=d)}
+const KEYS=[]; for(const j of JOINTS) for(const s of ['L','R']) KEYS.push(`${j.id}_${s}`); KEYS.push('wrist_L','wrist_R');
+const NAME={L:'left',R:'right'};
+const colName=k=>{const [j,s]=k.split('_');return `${j}_${NAME[s]}`};
+const stamp=d=>{const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`};
+const slug=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[łŁ]/g,'l').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
+const baseName=r=>`bikerc-pomiar${r.client?'-'+slug(r.client):''}-${stamp(r.startedAt)}`;
+function triggerDownload(b,name){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
+let sheetUrl=null;
+function closeSheet(){$('sheet').hidden=true;if(sheetUrl){const u=sheetUrl;sheetUrl=null;setTimeout(()=>URL.revokeObjectURL(u),60000)}}
+// na telefonach: arkusz „Udostępnij / Otwórz / Pobierz” (iOS Safari często ignoruje atrybut download)
+function deliver(blob,name,mime,opt={}){
+  const useSheet=opt.sheet??IS_MOBILE;
+  if(!useSheet){triggerDownload(blob,name);return}
+  const file=new File([blob],name,{type:mime});
+  if(sheetUrl) URL.revokeObjectURL(sheetUrl);
+  sheetUrl=URL.createObjectURL(blob);
+  $('sheet-name').textContent=name;
+  $('sh-open').href=sheetUrl; $('sh-dl').href=sheetUrl; $('sh-dl').download=name;
+  let canShare=false; try{canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch(e){}
+  $('sh-share').hidden=!canShare;
+  $('sh-share').onclick=async()=>{try{await navigator.share({files:[file],title:name})}catch(e){if(e.name!=='AbortError')toast('Udostępnianie nie powiodło się – użyj „Pobierz” lub „Otwórz”.',true,6000)}};
+  $('sheet').hidden=false; $('sheet').querySelector('.btn:not([hidden])').focus?.();
+}
+function download(name,mime,data){const b=new Blob([data],{type:mime});if(IS_IOS) deliver(b,name,mime,{sheet:true}); else triggerDownload(b,name)}
+const num=v=>v==null?'':(+v).toFixed(2);
+function exportCSV(){const r=S.last;if(!r)return;
+  const rows=[['time_s',...KEYS.map(colName)].join(',')];
+  for(const f of r.frames) rows.push([f.t.toFixed(3),...KEYS.map(k=>num(f.v[k]))].join(','));
+  download(baseName(r)+'.csv','text/csv;charset=utf-8','\ufeff'+rows.join('\n')+'\n')}
+function exportCSVCompat(){const r=S.last;if(!r)return;
+  const rows=[['frame','timestamp_s',...COMPAT.map((_,i)=>'angle_'+i)].join(',')];
+  r.frames.forEach((f,i)=>rows.push([i,f.t.toFixed(3),...COMPAT.map(([j,s])=>num(f.v[j+'_'+s]))].join(',')));
+  download(baseName(r)+'-pomiary.csv','text/csv;charset=utf-8',rows.join('\n')+'\n')}
+function exportJSON(){const r=S.last;if(!r)return;
+  const stats={};for(const k of KEYS){const s=statOf(k,r.stats);if(s)stats[colName(k)]={min:+s.min.toFixed(2),max:+s.max.toFixed(2),range:+s.range.toFixed(2),mean:+s.mean.toFixed(2),samples:s.n}}
+  const track=video.srcObject?.getVideoTracks?.()[0];
+  const doc={app:'BikeRc Motion',version:1,client:r.client,bike:r.bike,startedAt:r.startedAt.toISOString(),endedAt:r.endedAt.toISOString(),durationS:+r.dur.toFixed(3),
+    source:S.source||'camera',camera:track?.label||null,resolution:[canvas.width,canvas.height],model:`pose_landmarker_${S.modelName}`,mirror:S.mirror,
+    angleDefinitions:{knee:'hip–knee–ankle (interior, 180°=extension)',hip:'shoulder–hip–knee',elbow:'shoulder–elbow–wrist',shoulder:'elbow–shoulder–hip',ankle:'knee–ankle–foot_index',wrist:'elbow–wrist–index',torso:'shoulder–hip line vs horizontal'},
+    compatAngleIndex:COMPAT.map(([j,s],i)=>({index:i,joint:j,side:NAME[s]})),
+    stats,landmarkFormat:r.lm?'33×[x,y,z,visibility]; x,y normalised to the unmirrored frame (0–1)':null,
+    frames:r.frames.map(f=>({t:f.t,angles:Object.fromEntries(KEYS.map(k=>[colName(k),f.v[k]==null?null:+f.v[k].toFixed(2)])),...(f.lm?{landmarks:f.lm}:{})}))};
+  download(baseName(r)+'.json','application/json',JSON.stringify(doc))}
+function snapshot(){
+  if(!S.running) return;
+  const c=document.createElement('canvas');c.width=canvas.width;c.height=canvas.height;const g=c.getContext('2d');g.drawImage(canvas,0,0);
+  const img=new Image();img.onload=()=>{const lh=Math.round(c.height*.055),lw=lh*606/156;g.globalAlpha=.9;g.drawImage(img,c.width-lw-20,c.height-lh-20,lw,lh);g.globalAlpha=1;fin()};img.onerror=fin;img.src=LOGO_URI;
+  function fin(){c.toBlob(b=>{if(!b){toast('Nie udało się zapisać zrzutu.',true);return}deliver(b,`bikerc-zrzut-${stamp(new Date())}.png`,'image/png');toast('Zrzut PNG gotowy.')},'image/png')}
+}
+
+/* ---------- raport PDF ---------- */
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>{s.remove();rej(new Error('script '+src))};document.head.appendChild(s)})}
+let pdfLibPromise;
+function loadPdfLib(){
+  if(window.jspdf?.jsPDF&&window.BRC_FONTS) return Promise.resolve();
+  return pdfLibPromise||(pdfLibPromise=(async()=>{
+    if(!window.jspdf?.jsPDF){
+      try{ await loadScript(`https://cdn.jsdelivr.net/npm/jspdf@${JSPDF_VER}/dist/jspdf.umd.min.js`) }
+      catch(e){ console.warn('jsPDF z CDN niedostępny, używam wersji lokalnej',e); await loadScript('./assets/vendor/jspdf.umd.min.js') }
+    }
+    if(!window.BRC_FONTS) await loadScript('./assets/vendor/report-fonts.js');
+  })().catch(e=>{pdfLibPromise=null;throw e}));
+}
+function logoPng(){return new Promise(res=>{const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=1818;c.height=468;c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/png'))};img.onerror=()=>res(null);img.src=LOGO_URI})}
+
+function findPeaks(pts,key){
+  const peaks=[];
+  for(let i=0;i<pts.length;i++){
+    const v=pts[i].v[key]; if(v==null) continue; let isMax=true,mn=v;
+    for(let j=i-1;j>=0&&pts[i].t-pts[j].t<=.9;j--){const u=pts[j].v[key]; if(u==null) continue; mn=Math.min(mn,u); if(pts[i].t-pts[j].t<=.3&&u>v){isMax=false;break}}
+    if(!isMax) continue;
+    for(let j=i+1;j<pts.length&&pts[j].t-pts[i].t<=.9;j++){const u=pts[j].v[key]; if(u==null) continue; mn=Math.min(mn,u); if(pts[j].t-pts[i].t<=.3&&u>v){isMax=false;break}}
+    if(!isMax||v-mn<12) continue;
+    const last=peaks[peaks.length-1];
+    if(last&&pts[i].t-last.t<.35){ if(v>last.v) peaks[peaks.length-1]={t:pts[i].t,v}; continue }
+    peaks.push({t:pts[i].t,v});
+  }
+  return peaks;
+}
+function cycleSummary(frames,side){
+  const pk=findPeaks(frames,'knee_'+side); if(pk.length<3) return null;
+  const iv=[];for(let i=1;i<pk.length;i++)iv.push(pk[i].t-pk[i-1].t); iv.sort((a,b)=>a-b);
+  const vs=pk.map(p=>p.v),mean=vs.reduce((a,b)=>a+b,0)/vs.length;
+  return {n:pk.length,rpm:60/iv[Math.floor(iv.length/2)],peak:mean,peakMin:Math.min(...vs),peakMax:Math.max(...vs)};
+}
+function makeObservations(r,main,cyc){
+  const obs=[]; const st=k=>statOf(k,r.stats); const f0=x=>x.toFixed(0);
+  const kc=cyc[main];
+  if(kc){
+    const p=kc.peak; let t;
+    if(p>=140&&p<=155) t=`Średni szczyt kąta kolana (${SIDE_PL[main].toLowerCase()} strona) wynosi ${f0(p)}° i mieści się w orientacyjnym zakresie 140–155°.`;
+    else if(p>155) t=`Średni szczyt kąta kolana (${SIDE_PL[main].toLowerCase()} strona) wynosi ${f0(p)}° – powyżej orientacyjnego zakresu 140–155°. Może to wskazywać na zbyt wysoką pozycję siodła (noga prawie prosta w dolnym punkcie obrotu).`;
+    else t=`Średni szczyt kąta kolana (${SIDE_PL[main].toLowerCase()} strona) wynosi ${f0(p)}° – poniżej orientacyjnego zakresu 140–155°. Może to wskazywać na zbyt niską pozycję siodła lub niepełny wyprost nogi.`;
+    obs.push({k:p>=140&&p<=155?'ok':'warn',t});
+  } else obs.push({k:'info',t:'Nie wykryto powtarzalnych cykli zgięcia i wyprostu kolana (potrzebne min. 3 szczyty), dlatego nie oszacowano kadencji ani kąta wyprostu w dolnym punkcie obrotu.'});
+  if(cyc.L&&cyc.R){const d=cyc.L.peak-cyc.R.peak; if(Math.abs(d)>=5) obs.push({k:'warn',t:`Szczyty wyprostu kolana różnią się między stronami o ${Math.abs(d).toFixed(0)}° (lewa ${f0(cyc.L.peak)}°, prawa ${f0(cyc.R.peak)}°) – możliwa asymetria pracy nóg lub efekt ustawienia kamery.`})}
+  const nm={knee:'kolana',hip:'biodra',elbow:'łokcia',ankle:'kostki',shoulder:'barku'};
+  for(const j of ['knee','hip','ankle','elbow','shoulder']){
+    const a=st(j+'_L'),b=st(j+'_R'); if(!a||!b) continue;
+    const dr=a.range-b.range,dm=a.mean-b.mean;
+    if(Math.abs(dr)>=10||Math.abs(dm)>=8) obs.push({k:'warn',t:`Asymetria L–P dla ${nm[j]}: różnica zakresu ${dr>0?'+':''}${f0(dr)}°, różnica średniej ${dm>0?'+':''}${f0(dm)}° (próg orientacyjny: 10° / 8°).`});
+  }
+  const tl=st('torso_'+main);
+  if(tl){const m=tl.mean;const d=m<30?'bardzo niskie (aerodynamiczne)':m<45?'sportowe':'wyprostowane';obs.push({k:'info',t:`Średnie nachylenie tułowia od poziomu: ${f0(m)}° (${d} ustawienie), zakres ${f0(tl.min)}–${f0(tl.max)}°.`})}
+  if(r.frames.length<150) obs.push({k:'warn',t:`Pomiar jest krótki (${r.frames.length} próbek) – wyniki mogą nie być reprezentatywne. Zalecane jest min. 30–60 s ciągłego pedałowania.`});
+  if(obs.filter(o=>o.k==='warn').length===0) obs.push({k:'ok',t:'Nie wykryto odchyleń przekraczających progi orientacyjne.'});
+  return obs;
+}
+function captureKey(vals,now){
+  const r=S.rec; if(!r) return;
+  const side=S.side==='L'||S.side==='R'?S.side:S.autoSide, v=vals['knee_'+side]; if(v==null) return;
+  const c=r.caps||(r.caps={});
+  const take=(slot,val)=>{c[slot]={v:val,side,t:now/1000-r.t0,img:canvas.toDataURL('image/jpeg',.88),w:canvas.width,h:canvas.height}};
+  if(!c.max||(v>c.max.v+.5&&now/1000-r.t0-c.max.t>.15)) take('max',v);
+  if(!c.min||(v<c.min.v-.5&&now/1000-r.t0-c.min.t>.15)) take('min',v);
+}
+
+async function makeReport(){
+  const r=S.last; if(!r||r.frames.length<5){toast('Za mało danych do raportu – wykonaj dłuższy pomiar.',true);return}
+  const btn=$('btn-pdf'); btn.disabled=true; const old=btn.textContent; btn.textContent='Generuję PDF…';
+  try{
+    await loadPdfLib();
+    const logo=await logoPng();
+    const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4',compress:true});
+    const F=window.BRC_FONTS;
+    doc.addFileToVFS('Inter-Regular.ttf',F.inter);doc.addFont('Inter-Regular.ttf','Inter','normal');
+    doc.addFileToVFS('Inter-Bold.ttf',F.interBold);doc.addFont('Inter-Bold.ttf','Inter','bold');
+    doc.addFileToVFS('Archivo-BlackItalic.ttf',F.archivoBlackItalic);doc.addFont('Archivo-BlackItalic.ttf','Archivo','italic');
+    doc.addFileToVFS('Archivo-Bold.ttf',F.archivoBold);doc.addFont('Archivo-Bold.ttf','Archivo','bold');
+    const C={dark:'#232222',teal:'#2EC4B6',tealD:'#12958A',tealL:'#E6F7F5',grey:'#6B7170',line:'#D5DCDA',bg:'#F2F4F3',L:'#12A89B',R:'#E39A0B',warn:'#C27A00',red:'#C0392B'};
+    const PW=210,PH=297,M=15,CW=PW-2*M;
+    const main=S.side==='L'||S.side==='R'?S.side:S.autoSide;
+    const sideTxt=S.side==='auto'?`Auto (${main==='L'?'lewa':'prawa'})`:SIDE_PL[S.side];
+    const fr=r.frames,dur=r.dur;
+    const cyc={L:cycleSummary(fr,'L'),R:cycleSummary(fr,'R')};
+    const obs=makeObservations(r,main,cyc);
+    const fmtDate=d=>d.toLocaleString('pl-PL',{dateStyle:'long',timeStyle:'short'});
+    const txt=(s,x,y,o)=>doc.text(Array.isArray(s)?s:String(s),x,y,o);
+    const font=(f,st,sz,col)=>{doc.setFont(f,st);doc.setFontSize(sz);doc.setTextColor(col||C.dark)};
+    const section=(title,y)=>{font('Archivo','bold',10.5,C.dark);txt(title.toUpperCase(),M,y);doc.setDrawColor(C.teal);doc.setLineWidth(.7);doc.line(M,y+1.8,M+10,y+1.8);doc.setDrawColor(C.line);doc.setLineWidth(.2);doc.line(M+10,y+1.8,PW-M,y+1.8);return y+7};
+
+    /* --- strona 1: nagłówek --- */
+    if(logo) doc.addImage(logo,'PNG',M,12,48,48*468/1818); else {font('Archivo','italic',22,C.teal);txt('BikeRc',M,20)}
+    font('Archivo','italic',22,C.dark);txt('Raport z pomiaru',PW-M,19,{align:'right'});
+    font('Inter','normal',9,C.grey);txt('Analiza ruchu z kamery · kąty stawów i zakresy ruchu',PW-M,25.5,{align:'right'});
+    doc.setFillColor(C.teal);doc.rect(M,32,CW,1.2,'F');
+    let y=41;
+    // dane pomiaru
+    const info=[['Klient',r.client||'—'],['Rower',r.bike||'—'],['Data i godzina',fmtDate(r.startedAt)],['Czas pomiaru',mmss(r.dur)+` (${dur.toFixed(1)} s)`],['Analizowana strona',sideTxt],['Próbki',`${fr.length} (≈ ${(fr.length/dur).toFixed(0)} kl./s)`]];
+    const cw=CW/3;
+    doc.setFillColor(C.bg);doc.roundedRect(M,y,CW,33,2,2,'F');
+    info.forEach((it,i)=>{const cx=M+5+(i%3)*cw,cy=y+8+Math.floor(i/3)*15.5;font('Inter','bold',7,C.grey);txt(it[0].toUpperCase(),cx,cy);font('Inter','bold',10,C.dark);let L=doc.splitTextToSize(it[1],cw-7);if(L.length>1){font('Inter','bold',8.8,C.dark);L=doc.splitTextToSize(it[1],cw-7).slice(0,2)}txt(L,cx,cy+5,{lineHeightFactor:1.15})});
+    y+=33+7;
+
+    // zdjęcia
+    y=section('Obraz z pomiaru',y);
+    const caps=r.caps||{}; const imgs=[['max','Maks. wyprost kolana'],['min','Maks. zgięcie kolana']].filter(([k])=>caps[k]);
+    const gap=6,iw=(CW-gap)/2,maxH=62;
+    const dims=imgs.map(([k])=>{const c=caps[k];let w=iw,h=iw*c.h/c.w;if(h>maxH){h=maxH;w=h*c.w/c.h}return {w,h}});const hh=Math.max(0,...dims.map(d=>d.h));
+    if(imgs.length){
+      imgs.forEach(([k,title],i)=>{
+        const c=caps[k]; const {w,h}=dims[i];
+        const x0=M+i*(iw+gap)+(iw-w)/2;
+        doc.setDrawColor(C.line);doc.setLineWidth(.3);doc.addImage(c.img,'JPEG',x0,y,w,h,undefined,'FAST');doc.rect(x0,y,w,h,'S');
+        font('Inter','bold',8.5,C.dark);txt(`${title} – kolano ${c.side==='L'?'lewe':'prawe'}: ${c.v.toFixed(0)}°`,M+i*(iw+gap),y+hh+5);
+        font('Inter','normal',7.5,C.grey);txt(`klatka z ${c.t.toFixed(1)} s pomiaru`,M+i*(iw+gap),y+hh+9.2);
+      });
+      y+=hh+16;
+    } else { font('Inter','normal',9,C.grey);txt('Brak zarejestrowanych klatek z sylwetką.',M,y+4);y+=12 }
+
+    // KPI
+    y=section('Kluczowe wyniki',y);
+    const kn=statOf('knee_'+main,r.stats), cm=cyc[main];
+    const kpis=[
+      ['Kolano – maks. wyprost',kn?kn.max.toFixed(0)+'°':'—',`strona ${main==='L'?'lewa':'prawa'}`],
+      ['Kolano – maks. zgięcie',kn?kn.min.toFixed(0)+'°':'—',kn?`zakres ${kn.range.toFixed(0)}°`:''],
+      ['Kadencja (szac.)',cm?Math.round(cm.rpm)+' obr./min':'—',cm?`${cm.n} cykli`:'brak cykli'],
+      ['Śr. szczyt wyprostu',cm?cm.peak.toFixed(0)+'°':'—',cm?`${cm.peakMin.toFixed(0)}–${cm.peakMax.toFixed(0)}°`:'']];
+    const kw=(CW-3*4)/4;
+    kpis.forEach((k,i)=>{const x0=M+i*(kw+4);doc.setFillColor('#FFFFFF');doc.setDrawColor(C.line);doc.setLineWidth(.3);doc.roundedRect(x0,y,kw,24,2,2,'FD');doc.setFillColor(C.teal);doc.rect(x0,y+3,1.2,18,'F');
+      font('Inter','bold',6.8,C.grey);txt(doc.splitTextToSize(k[0].toUpperCase(),kw-6)[0],x0+4,y+6.5);
+      font('Archivo','italic',k[1].length>6?15:20,C.dark);txt(k[1],x0+4,y+15.5);font('Inter','normal',7.5,C.grey);txt(k[2],x0+4,y+20.5)});
+    y+=24+9;
+
+    // obserwacje
+    y=section('Obserwacje automatyczne (orientacyjne)',y);
+    const colOf={ok:C.tealD,warn:C.warn,info:C.grey};
+    for(const o of obs){
+      const lines=doc.splitTextToSize(o.t,CW-8); const h=lines.length*4.2;
+      if(y+h>PH-24){doc.addPage();y=20}
+      doc.setFillColor(colOf[o.k]);doc.circle(M+1.5,y-1.1,1.1,'F');
+      font('Inter','normal',9,C.dark);txt(lines,M+6,y);y+=h+2.6;
+    }
+
+    /* --- strona 2: tabela + wykresy --- */
+    doc.addPage(); y=20;
+    y=section('Zakresy ruchu w sesji',y);
+    const cols=[['Staw',34,'l'],['min',14,'r'],['max',14,'r'],['zakres',16,'r'],['śr.',14,'r'],['min',14,'r'],['max',14,'r'],['zakres',16,'r'],['śr.',14,'r'],['Δ zakr.',16,'r']];
+    // 34+14+14+16+14 +14+14+16+14+16 = 166 ; skalujemy do CW
+    const sumW=cols.reduce((a,c)=>a+c[1],0),sc=CW/sumW; const xs=[];let ax=M;cols.forEach(c=>{xs.push(ax);ax+=c[1]*sc});
+    const colR=i=>xs[i]+cols[i][1]*sc-2;
+    doc.setFillColor(C.dark);doc.rect(M,y,CW,6,'F');
+    font('Inter','bold',7,'#FFFFFF');txt('',M,y);
+    doc.setFillColor(C.L);doc.rect(xs[1],y,xs[5]-xs[1],6,'F');doc.setFillColor(C.R);doc.rect(xs[5],y,xs[9]-xs[5],6,'F');
+    font('Inter','bold',8,'#FFFFFF');txt('LEWA',(xs[1]+xs[5])/2,y+4.2,{align:'center'});txt('PRAWA',(xs[5]+xs[9])/2,y+4.2,{align:'center'});
+    doc.setFillColor(C.dark);doc.rect(xs[9],y,M+CW-xs[9],6,'F');txt('L–P',colR(9),y+4.2,{align:'right'});
+    y+=6;
+    doc.setFillColor(C.bg);doc.rect(M,y,CW,5.5,'F');font('Inter','bold',7,C.grey);
+    cols.forEach((c,i)=>{ if(i===0) txt('STAW',xs[0]+2,y+3.8); else txt(c[0].toUpperCase(),colR(i),y+3.8,{align:'right'}) });
+    y+=5.5;
+    JOINTS.forEach((j,ri)=>{
+      const a=statOf(j.id+'_L',r.stats),b=statOf(j.id+'_R',r.stats);
+      if(ri%2===1){doc.setFillColor('#FAFBFA');doc.rect(M,y,CW,7,'F')}
+      font('Inter','bold',9,C.dark);txt(j.pl,xs[0]+2,y+4.8);
+      const put=(s,o)=>{ if(!s){for(let i=0;i<4;i++)txt('–',colR(o+i),y+4.8,{align:'right'});return}
+        font('Inter','bold',9,C.dark);txt(s.min.toFixed(0)+'°',colR(o),y+4.8,{align:'right'});txt(s.max.toFixed(0)+'°',colR(o+1),y+4.8,{align:'right'});
+        font('Inter','normal',9,C.dark);txt(s.range.toFixed(0)+'°',colR(o+2),y+4.8,{align:'right'});txt(s.mean.toFixed(1)+'°',colR(o+3),y+4.8,{align:'right'})};
+      put(a,1);put(b,5);
+      font('Inter','bold',9,C.dark);const d=a&&b?a.range-b.range:null;
+      if(d!=null){doc.setTextColor(Math.abs(d)>=10?C.warn:C.dark);txt((d>0?'+':'')+d.toFixed(0)+'°',colR(9),y+4.8,{align:'right'})} else txt('–',colR(9),y+4.8,{align:'right'});
+      doc.setDrawColor(C.line);doc.setLineWidth(.15);doc.line(M,y+7,M+CW,y+7);
+      y+=7;
+    });
+    font('Inter','normal',7.5,C.grey);txt('Kąt kolana: 180° = pełny wyprost. „Tułów” = nachylenie linii bark–biodro od poziomu. Δ zakr. = zakres lewej − zakres prawej (podświetlone, gdy ≥ 10°).',M,y+4.5);
+    y+=12;
+
+    y=section('Przebieg kątów w czasie',y);
+    const charts=[['knee','Kolano'],['hip','Biodro'],['elbow','Łokieć'],['torso','Tułów (nachylenie od poziomu)']];
+    const chW=(CW-8)/2,chH=62;
+    // decymacja
+    const step=Math.max(1,Math.ceil(fr.length/450));
+    const pts=fr.filter((_,i)=>i%step===0);
+    charts.forEach(([jid,title],i)=>{
+      const x0=M+(i%2)*(chW+8),y0=y+Math.floor(i/2)*(chH+9);
+      font('Inter','bold',9,C.dark);txt(title,x0,y0+3);
+      const px=x0+9,py=y0+6,pw=chW-11,ph=chH-14;
+      let lo=Infinity,hi=-Infinity;
+      for(const s of ['L','R'])for(const p of pts){const v=p.v[jid+'_'+s];if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v)}}
+      if(!isFinite(lo)){lo=0;hi=180}
+      lo=Math.max(0,Math.floor((lo-5)/10)*10);hi=Math.min(190,Math.ceil((hi+5)/10)*10);if(hi-lo<30){hi=lo+30}
+      const X=t=>px+t/dur*pw,Y=v=>py+(1-(v-lo)/(hi-lo))*ph;
+      doc.setFillColor('#FFFFFF');doc.setDrawColor(C.line);doc.setLineWidth(.25);doc.rect(px,py,pw,ph,'FD');
+      const ref=JOINTS.find(j=>j.id===jid).ref;
+      if(ref){const a=Math.max(ref[0],lo),b=Math.min(ref[1],hi);if(b>a){doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:.18}));doc.setFillColor(C.teal);doc.rect(px,Y(b),pw,Y(a)-Y(b),'F');doc.restoreGraphicsState();font('Inter','normal',7,C.tealD);txt(`zielone pasmo: orientacyjnie ${ref[0]}–${ref[1]}°`,x0+chW,y0+3,{align:'right'})}}
+      const stp=(hi-lo)>100?30:(hi-lo)>50?20:10;
+      font('Inter','normal',6.5,C.grey);doc.setDrawColor('#E6EAE9');doc.setLineWidth(.12);
+      for(let v=Math.ceil(lo/stp)*stp;v<=hi;v+=stp){doc.line(px,Y(v),px+pw,Y(v));txt(v+'°',px-1.2,Y(v)+1.2,{align:'right'})}
+      const nt=Math.min(6,Math.max(2,Math.round(dur/5)+1));for(let k=0;k<nt;k++){const t=dur*k/(nt-1);txt(t.toFixed(dur<20?1:0)+' s',X(t),py+ph+3.6,{align:'center'})}
+      for(const s of ['L','R']){
+        doc.setDrawColor(s==='L'?C.L:C.R);doc.setLineWidth(.45);doc.setLineJoin?.('round');
+        let seg=[];const flush=()=>{if(seg.length>1){const l=[];for(let q=1;q<seg.length;q++)l.push([seg[q][0]-seg[q-1][0],seg[q][1]-seg[q-1][1]]);doc.lines(l,seg[0][0],seg[0][1],[1,1],'S',false)}seg=[]};
+        let pt=null;for(const p of pts){const v=p.v[jid+'_'+s];if(v==null||(pt!=null&&p.t-pt>.5)){flush()}if(v!=null){seg.push([X(p.t),Y(v)]);pt=p.t}}flush();
+      }
+      // legenda
+      doc.setFillColor(C.L);doc.rect(px+2,py+ph+6.2,5,1.2,'F');font('Inter','normal',7,C.grey);txt('lewa',px+8.5,py+ph+7.3);
+      doc.setFillColor(C.R);doc.rect(px+20,py+ph+6.2,5,1.2,'F');txt('prawa',px+26.5,py+ph+7.3);
+    });
+    y+=2*(chH+9)+2;
+
+    // metodyka
+    if(y>PH-45){doc.addPage();y=20}
+    y=section('Metodyka',y);
+    font('Inter','normal',8,C.grey);
+    const meth=`Pozycję stawów wyznacza model MediaPipe PoseLandmarker uruchamiany lokalnie w przeglądarce – obraz nie jest nigdzie wysyłany. Kąty są liczone w płaszczyźnie obrazu (2D) i wygładzane. Kolano: biodro–kolano–kostka; biodro: bark–biodro–kolano; łokieć: bark–łokieć–nadgarstek; bark: łokieć–bark–biodro; kostka: kolano–kostka–palce stopy. Kadencja i kąt wyprostu to szacunek z szczytów kąta kolana. Wynik zależy od ustawienia kamery (najlepiej prostopadle do roweru, na wysokości biodra), oświetlenia i widoczności sylwetki.`;
+    const ml=doc.splitTextToSize(meth,CW);txt(ml,M,y);y+=ml.length*3.6;
+
+    /* stopki */
+    const n=doc.getNumberOfPages();
+    for(let i=1;i<=n;i++){doc.setPage(i);
+      doc.setDrawColor(C.line);doc.setLineWidth(.2);doc.line(M,PH-17,PW-M,PH-17);
+      font('Inter','normal',6.8,C.grey);
+      txt('Wartości orientacyjne, generowane automatycznie – nie stanowią porady medycznej ani oceny fittera. Interpretacji wyników dokonuje specjalista.',M,PH-12.5);
+      font('Inter','bold',8,C.tealD);txt('bikerc.pl',M,PH-7);
+      font('Inter','normal',8,C.grey);txt('· kontakt@bikerc.pl · BIKERC Prosta Spółka Akcyjna, Rzeszów',M+14,PH-7);
+      txt(`Strona ${i} z ${n}`,PW-M,PH-7,{align:'right'});
+    }
+    doc.setProperties({title:`Raport BikeRc${r.client?' – '+r.client:''}`,author:'BikeRc',subject:'Raport z pomiaru ruchu',creator:'BikeRc Motion'});
+    deliver(doc.output('blob'),baseName(r)+'-raport.pdf','application/pdf');
+    toast(IS_MOBILE?'Raport PDF gotowy.':'Raport PDF zapisany.');
+  }catch(e){console.error(e);toast('Nie udało się wygenerować raportu PDF: '+(e&&e.message||e),true,9000)}
+  btn.disabled=false;btn.textContent=old;
+}
+
+/* ---------- zdarzenia ---------- */
+const toggleCam=()=>S.running?stopAll():startCamera();
+const MQL=matchMedia(MOBILE_MQ);
+function applyLayoutDefaults(){ // na telefonie zwijamy rzadziej używane sekcje; na desktopie wszystko otwarte
+  const mob=MQL.matches;
+  for(const id of ['c-chart','c-stats','c-tips','c-set']) $(id).open=!mob;
+  for(const id of ['c-angles','c-measure','c-side','c-export']) $(id).open=true;
+}
+applyLayoutDefaults();
+MQL.addEventListener?.('change',applyLayoutDefaults);
+document.querySelectorAll('.fold>summary').forEach(s=>s.addEventListener('click',e=>{ if(!MQL.matches&&!e.target.closest('button')) e.preventDefault() }));
+['c-angles','c-stats','c-chart'].forEach(id=>$(id).addEventListener('toggle',()=>{if($(id).open){updatePanels();renderMain()}}));
+function isFs(){const st=$('stage');return document.fullscreenElement===st||document.webkitFullscreenElement===st||st.classList.contains('fake-fs')}
+function updateFs(){const f=isFs();$('s-fs').textContent=f?'✕':'⛶';$('s-fs').setAttribute('aria-label',f?'Zamknij pełny ekran':'Pełny ekran');document.body.style.overflow=$('stage').classList.contains('fake-fs')?'hidden':'';syncDock()}
+async function toggleFs(){
+  const st=$('stage');
+  if(isFs()){
+    st.classList.remove('fake-fs');
+    if(document.fullscreenElement||document.webkitFullscreenElement){try{await (document.exitFullscreen||document.webkitExitFullscreen).call(document)}catch(e){}}
+  }else{
+    const rq=st.requestFullscreen||st.webkitRequestFullscreen;
+    if(rq){try{await rq.call(st)}catch(e){st.classList.add('fake-fs')}} else st.classList.add('fake-fs'); // iPhone Safari: pełny ekran tylko dla <video>
+  }
+  updateFs();
+}
+document.addEventListener('fullscreenchange',updateFs); document.addEventListener('webkitfullscreenchange',updateFs);
+function syncDock(){
+  const rec=!!S.rec,run=S.running;
+  const dc=$('d-cam'); dc.textContent=run?'⏻ Stop':'📷 Uruchom kamerę'; dc.classList.toggle('danger',run); dc.classList.toggle('primary',!run);
+  const dr=$('d-rec'); dr.disabled=$('btn-rec').disabled;
+  dr.textContent=rec?'⏹ Zakończ · '+$('timer').textContent:'● Start pomiaru'; dr.classList.toggle('danger',rec); dr.classList.toggle('primary',!rec);
+  $('d-fs').disabled=!run; $('s-flip').hidden=!run; $('s-fs').hidden=!run;
+  const sr=$('s-rec'); sr.hidden=!(run&&isFs()); sr.textContent=dr.textContent; sr.classList.toggle('danger',rec);
+}
+$('d-cam').onclick=toggleCam; $('d-rec').onclick=()=>$('btn-rec').click(); $('s-rec').onclick=()=>$('btn-rec').click();
+$('d-flip').onclick=flipCamera; $('s-flip').onclick=flipCamera; $('btn-flip2').onclick=flipCamera;
+$('d-fs').onclick=toggleFs; $('s-fs').onclick=toggleFs;
+$('seg-facing').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.f!==S.facing)setFacing(b.dataset.f)};
+syncFacingUI();
+$('sh-close').onclick=closeSheet; $('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))closeSheet()});
+['sh-open','sh-dl'].forEach(i=>$(i).addEventListener('click',()=>setTimeout(closeSheet,400)));
+$('sh-share').addEventListener('click',()=>setTimeout(closeSheet,400));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet').hidden)closeSheet()});
+/* PWA: instalacja + service worker */
+let deferredInstall=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('btn-install').hidden=false});
+window.addEventListener('appinstalled',()=>{deferredInstall=null;$('btn-install').hidden=true;toast('Zainstalowano aplikację.')});
+$('btn-install').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch(e){}deferredInstall=null;$('btn-install').hidden=true};
+if(IS_IOS&&!isStandalone()) $('tip-ios').hidden=false;
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')&&qs.get('nosw')!=='1')
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW',e)));
+$('btn-cam').onclick=toggleCam; $('btn-empty-start').onclick=startCamera;
+$('btn-rec').onclick=()=>S.rec?stopRecording():startRecording();
+$('btn-snap').onclick=snapshot; $('btn-pdf').onclick=makeReport; $('btn-csv').onclick=exportCSV; $('btn-csv2').onclick=exportCSVCompat; $('btn-json').onclick=exportJSON;
+$('btn-reset').onclick=()=>{resetStats();S.series=[];toast('Zresetowano min/max.')};
+$('file-video').onchange=e=>{const f=e.target.files[0];if(f)startFile(f);e.target.value=''};
+$('chk-mirror').onchange=()=>{S.mirror=effMirror()};
+$('chk-skel').onchange=e=>S.skel=e.target.checked; $('chk-labels').onchange=e=>S.labels=e.target.checked;
+$('sel-cam').onchange=()=>{if(S.running&&S.source==='camera')startCamera()};
+$('sel-res').onchange=()=>{if(S.running&&S.source==='camera')startCamera()};
+$('sel-model').onchange=async e=>{modelPromise=initModel(e.target.value,S.delegate)};
+$('seg-side').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.side=b.dataset.s;document.querySelectorAll('#seg-side button').forEach(x=>x.setAttribute('aria-pressed',x===b));updatePanels()};
+$('seg-win').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.win=+b.dataset.w;document.querySelectorAll('#seg-win button').forEach(x=>x.setAttribute('aria-pressed',x===b))};
+const selJoint=j=>{S.sel=j;document.querySelectorAll('#tabs .tab').forEach(x=>x.setAttribute('aria-pressed',x.dataset.j===j));updatePanels()};
+$('tabs').onclick=e=>{const b=e.target.closest('button');if(b)selJoint(b.dataset.j)};
+$('angles').onclick=e=>{const b=e.target.closest('.ang');if(b)selJoint(b.dataset.j)};
+document.addEventListener('visibilitychange',async()=>{
+  if(document.hidden){ if(S.running) video.pause(); return }
+  if(!S.running) return;
+  requestWake();
+  if(S.source==='camera'&&S.stream&&S.stream.getVideoTracks().every(t=>t.readyState==='ended')){ toast('Kamera została zatrzymana w tle – uruchamiam ponownie…'); if(S.rec) toast('Pomiar został przerwany.',true); await startCamera(); return }
+  video.play().catch(()=>{}); S.lastVT=-1;
+  if(S.rec) toast('Aplikacja była w tle – w pomiarze może być przerwa w danych.',false,4000);
+});
+let rzT; const onResize=()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(S.running&&video.videoWidth) fitCanvas();renderMain();updatePanels()},250)};
+window.addEventListener('resize',onResize); screen.orientation?.addEventListener?.('change',onResize); window.addEventListener('orientationchange',onResize);
+window.addEventListener('pagehide',releaseWake);
+window.addEventListener('beforeunload',()=>S.stream?.getTracks().forEach(t=>t.stop()));
+window.__bikerc=S; // pomocnicze do testów
+</script>
+</body>
+</html>

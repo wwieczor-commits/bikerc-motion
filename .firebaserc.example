@@ -1,0 +1,6 @@
+{
+  "projects": { "default": "TWOJ-PROJEKT-FIREBASE" },
+  "targets": {
+    "TWOJ-PROJEKT-FIREBASE": { "hosting": { "motion": ["bikerc-motion"] } }
+  }
+}

@@ -1,0 +1,62 @@
+/* BikeRc Motion – service worker: powłoka aplikacji offline + cache bibliotek i modelu */
+const VERSION = 'v3';
+const SHELL = `bikerc-shell-${VERSION}`;
+const LIBS = 'bikerc-libs-v1';
+const SHELL_FILES = [
+  './', './index.html', './manifest.webmanifest',
+  './assets/fonts.css', './assets/logo-bikerc.svg',
+  './assets/vendor/jspdf.umd.min.js', './assets/vendor/report-fonts.js',
+  './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/icon-maskable-512.png', './assets/icons/apple-touch-icon.png'
+];
+self.addEventListener('install', e => {
+  e.waitUntil((async () => {
+    const c = await caches.open(SHELL);
+    // pojedyncze błędy (np. brak pliku) nie blokują instalacji
+    await Promise.all(SHELL_FILES.map(u => c.add(u).catch(() => {})));
+    // fonty z assets/fonts.css
+    try {
+      const css = await (await fetch('./assets/fonts.css')).text();
+      const urls = [...css.matchAll(/url\(([^)]+)\)/g)].map(m => m[1].replace(/["']/g, '')).filter(u => !u.startsWith('data:'));
+      await Promise.all(urls.map(u => c.add(new URL(u, new URL('./assets/', self.registration.scope)).href).catch(() => {})));
+    } catch (_) {}
+    self.skipWaiting();
+  })());
+});
+self.addEventListener('activate', e => {
+  e.waitUntil((async () => {
+    for (const k of await caches.keys()) if (k.startsWith('bikerc-shell-') && k !== SHELL) await caches.delete(k);
+    await self.clients.claim();
+  })());
+});
+const isLib = u => /cdn\.jsdelivr\.net|storage\.googleapis\.com\/mediapipe-models|\/assets\/mediapipe\//.test(u);
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  // biblioteki / model: cache-first (duże, wersjonowane)
+  if (isLib(req.url)) {
+    e.respondWith((async () => {
+      const c = await caches.open(LIBS);
+      const hit = await c.match(req, { ignoreVary: true });
+      if (hit) return hit;
+      try {
+        const res = await fetch(req);
+        if (res && (res.ok || res.type === 'opaque')) c.put(req, res.clone()).catch(() => {});
+        return res;
+      } catch (err) { return hit || Response.error(); }
+    })());
+    return;
+  }
+  if (url.origin !== self.location.origin) return;
+  // własne pliki: stale-while-revalidate, nawigacja → index.html offline
+  e.respondWith((async () => {
+    const c = await caches.open(SHELL);
+    const hit = await c.match(req, { ignoreSearch: req.mode === 'navigate' });
+    const net = fetch(req).then(res => { if (res && res.ok) c.put(req.mode === 'navigate' ? './index.html' : req, res.clone()).catch(() => {}); return res }).catch(() => null);
+    if (hit) { e.waitUntil(net); return hit }
+    const res = await net;
+    if (res) return res;
+    if (req.mode === 'navigate') { const idx = await c.match('./index.html'); if (idx) return idx }
+    return Response.error();
+  })());
+});
