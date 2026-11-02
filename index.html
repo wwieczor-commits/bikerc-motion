@@ -155,6 +155,10 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
 .stbtns{position:absolute;right:10px;top:10px;display:flex;gap:8px;z-index:3}
 .rbtn{appearance:none;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(31,30,30,.72);backdrop-filter:blur(4px);color:#fff;font-size:20px;line-height:1;display:grid;place-items:center;cursor:pointer;padding:0}
 .rbtn:active{background:rgba(46,196,182,.5)}
+.rbtn.priv[aria-pressed=true]{background:rgba(46,196,182,.85);border-color:var(--teal);color:var(--bg-deep)}
+.rbtn.priv[aria-pressed=false]{opacity:.8}
+.badge.priv{background:rgba(46,196,182,.9);color:var(--bg-deep);font-weight:700}
+.switch.priv{font-weight:600;color:var(--teal-hi)}
 #s-rec{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:3;min-width:150px;height:56px;border-radius:999px;border:0;background:var(--teal);color:var(--bg-deep);font-weight:800;font-size:17px;padding:0 24px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,.5)}
 #s-rec.danger{background:var(--danger);color:#fff}
 .stage.fake-fs{position:fixed;inset:0;z-index:90;border-radius:0;border:0;aspect-ratio:auto!important;width:100%;height:100dvh;max-height:none}
@@ -263,12 +267,13 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
       <div class="stage" id="stage">
         <video id="video" playsinline webkit-playsinline muted autoplay></video>
         <canvas id="view" width="1280" height="720"></canvas>
-        <div class="stbtns"><button class="rbtn" id="s-voicecfg" aria-label="Ustawienia trenera głosowego" title="Ustawienia trenera głosowego">🎙</button><button class="rbtn" id="s-voice" aria-label="Wycisz głos trenera" title="Głos trenera">🔊</button><button class="rbtn" id="s-flip" hidden aria-label="Przełącz kamerę przód/tył" title="Przełącz kamerę">🔄</button><button class="rbtn" id="s-fs" hidden aria-label="Pełny ekran" title="Pełny ekran">⛶</button></div>
+        <div class="stbtns"><button class="rbtn priv" id="s-priv" aria-pressed="true" aria-label="Prywatność: rozmyj tło" title="Prywatność: rozmyj tło (wł.)">🔒</button><button class="rbtn" id="s-voicecfg" aria-label="Ustawienia trenera głosowego" title="Ustawienia trenera głosowego">🎙</button><button class="rbtn" id="s-voice" aria-label="Wycisz głos trenera" title="Głos trenera">🔊</button><button class="rbtn" id="s-flip" hidden aria-label="Przełącz kamerę przód/tył" title="Przełącz kamerę">🔄</button><button class="rbtn" id="s-fs" hidden aria-label="Pełny ekran" title="Pełny ekran">⛶</button></div>
         <button id="s-rec" hidden>● Start pomiaru</button>
         <div class="hud" id="hud">
           <span class="badge" id="b-fps" hidden>– FPS</span>
           <span class="badge" id="b-res" hidden></span>
           <span class="badge rec" id="b-rec" hidden>REC 00:00</span>
+          <span class="badge priv" id="b-priv" hidden>🔒 Tło rozmyte</span>
         </div>
         <div class="nopose" id="nopose">Nie widzę sylwetki – wejdź w kadr, bokiem do kamery</div>
         <div class="empty" id="empty">
@@ -322,6 +327,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
         <button class="btn" id="btn-snap" disabled>📷 Zrzut PNG</button>
         <button class="btn" id="btn-voice-cfg">🎙 Trener głosowy</button>
         <span class="sep" style="width:1px;height:28px;margin:0 4px"></span>
+        <label class="switch priv" title="Rozmywa tło (pomieszczenie, osoby w tle); sylwetka i rower zostają ostre. Dotyczy podglądu, zrzutów i raportu PDF."><input type="checkbox" id="chk-priv" checked> 🔒 Prywatność: rozmyj tło</label>
         <label class="switch"><input type="checkbox" id="chk-mirror" checked> Lustro</label>
         <label class="switch"><input type="checkbox" id="chk-skel" checked> Szkielet</label>
         <label class="switch"><input type="checkbox" id="chk-labels" checked> Kąty na obrazie</label>
@@ -413,7 +419,7 @@ button,.btn,.seg button,.tab{touch-action:manipulation;-webkit-tap-highlight-col
 </main>
 <footer>
   <span>© Wojciech Wieczorek · Motion – prototyp. Wartości orientacyjne, nie zastępują oceny fittera.</span>
-  <span>Pozy: MediaPipe PoseLandmarker · przetwarzanie lokalne w przeglądarce</span>
+  <span>Pozy: MediaPipe PoseLandmarker · przetwarzanie lokalne w przeglądarce · Motion v8 · 2026-11-02</span>
 </footer>
 <nav id="dock" aria-label="Sterowanie pomiarem">
   <button class="btn dk" id="d-cam"><i>📷</i><span>Kamera</span></button>
@@ -481,6 +487,7 @@ const S={lib:null,landmarker:null,modelName:'lite',delegate:'GPU',running:false,
   mt:0,userPaused:false,rate:1,rec:null,last:null,cad:null,raf:0,errCount:0,
   facing:IS_MOBILE?'environment':'user',camFacing:null,permitted:false,wake:null,vw:0,vh:0,interval:0,lastInfer:0,lastLm:null,lastVals:null};
 const video=$('video'),canvas=$('view'),ctx=canvas.getContext('2d');
+S.priv=(()=>{try{const v=localStorage.getItem('bikerc.privacy.v1');return v===null?true:v==='1'}catch(e){return true}})();
 
 /* ---------- UI helpers ---------- */
 let toastT;
@@ -512,7 +519,7 @@ async function initModel(name=S.modelName,delegate=S.delegate){
         const fileset=await FilesetResolver.forVisionTasks(src.wasm);
         landmarker=await PoseLandmarker.createFromOptions(fileset,{
           baseOptions:{modelAssetPath:src.model(name),delegate},
-          runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5});
+          runningMode:'VIDEO',numPoses:1,outputSegmentationMasks:!!S.priv,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5});
         S.modelSrc=src===CDN?'CDN':'lokalnie';break;
       }catch(e){lastErr=e;console.warn('Model/wasm z',src.wasm,'niedostępny:',e)}
     }
@@ -668,7 +675,7 @@ async function beginTracking(){
   S.running=true; S.lastVT=-1; S.lastTs=0; S.errCount=0;
   S.t0=clk(); S.series=[]; resetStats(); S.cad=null;
   S.mirror=effMirror(); S.lastLm=null; S.lastVals=null; S.lastInfer=0; S.interval=0;
-  fitCanvas();
+  fitCanvas(); PRIV.valid=false; $('b-priv').hidden=!S.priv;
   $('empty').hidden=true; ['b-fps','b-res'].forEach(i=>$(i).hidden=false);
   $('btn-cam').textContent=S.source==='file'?'Zatrzymaj film':'Zatrzymaj kamerę'; $('btn-cam').classList.remove('primary'); $('btn-cam').classList.add('danger');
   $('btn-snap').disabled=false; $('btn-rec').disabled=false;
@@ -681,7 +688,7 @@ function stopAll(silent){
   S.stream?.getTracks().forEach(t=>t.stop()); S.stream=null;
   if(S.fileUrl){URL.revokeObjectURL(S.fileUrl);S.fileUrl=null}
   video.onerror=null; video.pause(); video.srcObject=null; video.removeAttribute('src'); video.load(); S.source=null; S.fileName=null; $('vctl').hidden=true;
-  $('empty').hidden=false; ['b-fps','b-res'].forEach(i=>$(i).hidden=true); $('nopose').style.display='none';
+  $('empty').hidden=false; ['b-fps','b-res'].forEach(i=>$(i).hidden=true); $('nopose').style.display='none'; $('b-priv').hidden=true; PRIV.valid=false;
   $('btn-cam').textContent='Uruchom kamerę'; $('btn-cam').classList.add('primary'); $('btn-cam').classList.remove('danger');
   $('btn-snap').disabled=true; $('btn-rec').disabled=true;
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -756,6 +763,104 @@ function analyseCycles(){
   return {rpm:60/med,peak:rec.reduce((a,p)=>a+p.v,0)/rec.length,n:rec.length,side};
 }
 
+/* ---------- prywatność: rozmycie tła ----------
+   Podgląd, zrzuty PNG i klatki do raportu PDF powstają z jednego płótna (#view), więc rozmycie robimy tutaj, zanim
+   cokolwiek z niego powstanie. Ostra zostaje tylko sylwetka (maska segmentacji z PoseLandmarker) powiększona o margines
+   oraz strefa wokół nóg/rowera wyliczona z punktów pozy. Brak maski / brak sylwetki => cały kadr rozmyty (fail-closed). */
+const PRIV={mk:null,tmp:null,mid:null,sm:null,tiny:null,mw:0,mh:0,valid:false,vt:-1,t:0,
+  filter:(()=>{try{const c=document.createElement('canvas').getContext('2d');c.filter='blur(2px)';return c.filter==='blur(2px)'}catch(e){return false}})()};
+function privCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c}
+function privSize(w,h){
+  const mw=Math.max(64,Math.round(w/4)),mh=Math.max(36,Math.round(h/4));
+  if(PRIV.mw===mw&&PRIV.mh===mh) return;
+  PRIV.mw=mw;PRIV.mh=mh;PRIV.valid=false;
+  PRIV.mk=privCanvas(mw,mh);PRIV.tmp=privCanvas(mw,mh);PRIV.mid=privCanvas(mw,mh);
+  PRIV.sm=privCanvas(Math.max(16,Math.round(w/16)),Math.max(10,Math.round(h/16)));
+}
+function privMaskToTiny(m){
+  const W=m.width,Hh=m.height,f=m.getAsFloat32Array();
+  const st=Math.max(1,Math.floor(W/256)),tw=Math.floor(W/st),th=Math.floor(Hh/st);
+  if(!PRIV.tiny||PRIV.tiny.width!==tw||PRIV.tiny.height!==th){PRIV.tiny=privCanvas(tw,th);PRIV.tinyId=null}
+  const g=PRIV.tiny.getContext('2d'); const id=PRIV.tinyId||(PRIV.tinyId=g.createImageData(tw,th)),d=id.data;
+  let on=0;
+  for(let y=0,i=0;y<th;y++){const row=y*st*W;for(let x=0;x<tw;x++,i+=4){
+    const v=f[row+x*st]; if(v>.5)on++; d[i]=d[i+1]=d[i+2]=255; d[i+3]=v<.25?0:v>.6?255:(v-.25)/.35*255}}
+  g.putImageData(id,0,0); PRIV.cov=on/(tw*th); return PRIV.tiny;
+}
+function privBuild(res,lm,vt){
+  privSize(canvas.width,canvas.height);
+  const {mk,tmp,mw,mh}=PRIV, g=mk.getContext('2d'), gt=tmp.getContext('2d');
+  g.globalCompositeOperation='source-over'; g.globalAlpha=1; g.filter='none'; g.clearRect(0,0,mw,mh);
+  // punkty pozy w pikselach maski
+  const P=lm.map(p=>({x:p.x*mw,y:p.y*mh,v:p.visibility??1}));
+  const vis=P.filter(p=>p.v>=.3&&p.x>-mw*.2&&p.x<mw*1.2);
+  let H=mh*.5;
+  if(vis.length>=3){const xs=vis.map(p=>p.x),ys=vis.map(p=>p.y);H=Math.max(Math.max(...ys)-Math.min(...ys),(Math.max(...xs)-Math.min(...xs))*.7,mh*.15)}
+  // 1) maska osoby z segmentacji (rozszerzona o margines)
+  let masks=res&&res.segmentationMasks; let tiny=null;
+  try{ if(masks&&masks[0]) tiny=privMaskToTiny(masks[0]) }catch(e){ if(!PRIV.warned){PRIV.warned=1;console.warn('maska segmentacji:',e)} }
+  try{ masks&&masks.forEach(m=>m.close&&m.close()) }catch(e){}
+  if(tiny){
+    gt.globalCompositeOperation='source-over'; gt.clearRect(0,0,mw,mh); gt.imageSmoothingEnabled=true; gt.drawImage(tiny,0,0,mw,mh);
+    const r=Math.max(2,H*.045); g.globalCompositeOperation='source-over';
+    g.drawImage(tmp,0,0);
+    for(let k=0;k<12;k++){const a=k/12*Math.PI*2;g.drawImage(tmp,Math.cos(a)*r,Math.sin(a)*r)}
+    for(let k=0;k<8;k++){const a=(k+.5)/8*Math.PI*2;g.drawImage(tmp,Math.cos(a)*r*.5,Math.sin(a)*r*.5)}
+  }
+  // 2) „gruby szkielet” – gdyby maska była pusta/niepełna (np. ręce, głowa)
+  g.strokeStyle='#fff';g.fillStyle='#fff';g.lineCap='round';g.lineJoin='round';g.lineWidth=Math.max(4,H*.11);
+  const ok=i=>P[i]&&P[i].v>=.3;
+  for(const [a,b] of BONES){ if(ok(a)&&ok(b)){g.beginPath();g.moveTo(P[a].x,P[a].y);g.lineTo(P[b].x,P[b].y);g.stroke()} }
+  if(ok(0)){g.beginPath();g.arc(P[0].x,P[0].y,H*.13,0,7);g.fill()}
+  for(const i of [15,16,19,20,27,28,29,30,31,32]) if(ok(i)){g.beginPath();g.arc(P[i].x,P[i].y,H*.09,0,7);g.fill()}
+  // 3) strefa roweru: elipsa od bioder do pedałów/kół, szeroko na boki
+  const hips=[23,24].filter(ok),ank=[27,28,29,30,31,32].filter(ok);
+  if(vis.length>=3){
+    const minX=Math.min(...vis.map(p=>p.x)),maxX=Math.max(...vis.map(p=>p.x)),maxY=Math.max(...vis.map(p=>p.y));
+    const hipY=hips.length?hips.reduce((a,i)=>a+P[i].y,0)/hips.length:maxY-H*.5;
+    const ankY=ank.length?Math.max(...ank.map(i=>P[i].y)):maxY;
+    const top=hipY-H*.12,bot=ankY+H*.26;
+    g.beginPath();g.ellipse((minX+maxX)/2,(top+bot)/2,(maxX-minX)/2+H*.30,(bot-top)/2+H*.02,0,0,7);g.fill();
+  }
+  // 4) miękka krawędź
+  if(PRIV.filter){gt.clearRect(0,0,mw,mh);gt.globalCompositeOperation='copy';gt.filter='blur('+Math.max(1,H*.02).toFixed(1)+'px)';gt.drawImage(mk,0,0);gt.filter='none';gt.globalCompositeOperation='source-over';
+    g.clearRect(0,0,mw,mh);g.drawImage(tmp,0,0)}
+  PRIV.valid=true;PRIV.vt=vt;PRIV.t=performance.now();
+}
+/* rysuje klatkę do #view (wywoływane we wnętrzu transformacji lustra) */
+function privDraw(w,h,haveMask){
+  privSize(w,h);
+  const {mid,sm,mw,mh}=PRIV,gm=mid.getContext('2d'),gs=sm.getContext('2d');
+  // tło: bardzo mała kopia klatki -> powiększona i wygładzona = silne rozmycie (działa też w Safari bez ctx.filter)
+  gs.imageSmoothingEnabled=true;gs.imageSmoothingQuality='high';gs.clearRect(0,0,sm.width,sm.height);gs.drawImage(video,0,0,sm.width,sm.height);
+  gm.globalCompositeOperation='source-over';gm.imageSmoothingEnabled=true;gm.imageSmoothingQuality='high';gm.clearRect(0,0,mw,mh);
+  if(PRIV.filter) gm.filter="blur(8px)";
+  gm.drawImage(sm,0,0,mw,mh); gm.filter='none';
+  if(haveMask){gm.globalCompositeOperation='destination-out';gm.drawImage(PRIV.mk,0,0,mw,mh);gm.globalCompositeOperation='source-over'}
+  ctx.drawImage(video,0,0,w,h);              // ostra klatka…
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.drawImage(mid,0,0,w,h);                // …przykryta rozmytym tłem z „dziurą” na sylwetkę
+}
+function drawFrame(w,h){
+  ctx.save(); if(S.mirror){ctx.translate(w,0);ctx.scale(-1,1)}
+  if(!S.priv) ctx.drawImage(video,0,0,w,h);
+  else{
+    const now=performance.now(),vt=video.currentTime;
+    const fresh=PRIV.valid&&(S.source==='file'?Math.abs(vt-PRIV.vt)<.25:now-PRIV.t<700);
+    privDraw(w,h,fresh);
+  }
+  ctx.restore();
+}
+function setPrivacy(on,quiet){
+  S.priv=!!on; try{localStorage.setItem('bikerc.privacy.v1',on?'1':'0')}catch(e){}
+  PRIV.valid=false;
+  $('chk-priv').checked=S.priv; const b=$('s-priv'); b.setAttribute('aria-pressed',S.priv); b.title='Prywatność: rozmyj tło ('+(S.priv?'wł.':'wył.')+')';
+  $('b-priv').hidden=!(S.priv&&S.running);
+  try{ S.landmarker?.setOptions({outputSegmentationMasks:S.priv}) }catch(e){ console.warn('setOptions',e); modelPromise=initModel(S.modelName,S.delegate) }
+  S.lastVT=-1; // wymuś ponowne narysowanie (także gdy film jest zatrzymany)
+  if(!quiet) toast(S.priv?'🔒 Prywatność włączona – tło jest rozmyte w podglądzie, zrzutach i raporcie.':'Prywatność wyłączona – tło jest widoczne w podglądzie, zrzutach i raporcie.',false,5000);
+}
+
 /* ---------- pętla ---------- */
 function loop(){
   if(!S.running) return; S.raf=requestAnimationFrame(loop);
@@ -766,7 +871,7 @@ function loop(){
   if(S.vw!==video.videoWidth||S.vh!==video.videoHeight) fitCanvas();   // obrót telefonu zmienia wymiary strumienia
   const w=canvas.width,h=canvas.height,now=performance.now();
   if(S.interval&&now-S.lastInfer<S.interval){ // ogranicznik: pokaż tylko obraz i ostatni szkielet
-    ctx.save(); if(S.mirror){ctx.translate(w,0);ctx.scale(-1,1)} ctx.drawImage(video,0,0,w,h); ctx.restore();
+    drawFrame(w,h);
     if(S.skel&&S.lastLm&&now-S.lastPoseT<400) drawPose(S.lastLm,S.lastVals,w,h);
     return;
   }
@@ -779,8 +884,10 @@ function loop(){
     console.warn('detect error',e);
     if(++S.errCount===5&&S.delegate==='GPU'){ S.running=false; toast('Błąd GPU – przełączam na CPU…'); modelPromise=initModel(S.modelName,'CPU'); modelPromise.then(()=>{S.running=true;S.raf=requestAnimationFrame(loop)}); return }
   }
-  // wideo (z lustrem)
-  ctx.save(); if(S.mirror){ctx.translate(w,0);ctx.scale(-1,1)} ctx.drawImage(video,0,0,w,h); ctx.restore();
+  // wideo (z lustrem; przy włączonej prywatności – z rozmytym tłem)
+  const lm0=res&&res.landmarks&&res.landmarks[0];
+  if(S.priv&&lm0){ try{privBuild(res,lm0,video.currentTime)}catch(e){console.warn('priv',e);PRIV.valid=false} }
+  drawFrame(w,h);
   // fps
   S.fpsN++; if(now-S.fpsT>=1000){S.fps=S.fpsN*1000/(now-S.fpsT);S.fpsN=0;S.fpsT=now;S.interval=IS_MOBILE?(S.inferMs>60?80:40):(S.inferMs>80?60:0);$('b-fps').textContent=`${S.fps.toFixed(0)} FPS · ${S.inferMs.toFixed(0)} ms`}
   const lm=res&&res.landmarks&&res.landmarks[0];
@@ -1047,7 +1154,7 @@ function captureKey(vals,now){
   const r=S.rec; if(!r) return;
   const side=S.side==='L'||S.side==='R'?S.side:S.autoSide, v=vals['knee_'+side]; if(v==null) return;
   const c=r.caps||(r.caps={});
-  const take=(slot,val)=>{c[slot]={v:val,side,t:now/1000-r.t0,img:canvas.toDataURL('image/jpeg',.88),w:canvas.width,h:canvas.height}};
+  const take=(slot,val)=>{c[slot]={v:val,side,t:now/1000-r.t0,img:canvas.toDataURL('image/jpeg',.88),priv:S.priv,w:canvas.width,h:canvas.height}};
   if(!c.max||(v>c.max.v+.5&&now/1000-r.t0-c.max.t>.15)) take('max',v);
   if(!c.min||(v<c.min.v-.5&&now/1000-r.t0-c.min.t>.15)) take('min',v);
 }
@@ -1100,7 +1207,7 @@ async function makeReport(){
         const x0=M+i*(iw+gap)+(iw-w)/2;
         doc.setDrawColor(C.line);doc.setLineWidth(.3);doc.addImage(c.img,'JPEG',x0,y,w,h,undefined,'FAST');doc.rect(x0,y,w,h,'S');
         font('Inter','bold',8.5,C.dark);txt(`${title} – kolano ${c.side==='L'?'lewe':'prawe'}: ${c.v.toFixed(0)}°`,M+i*(iw+gap),y+hh+5);
-        font('Inter','normal',7.5,C.grey);txt(`klatka z ${c.t.toFixed(1)} s ${r.source==='file'?'filmu':'pomiaru'}`,M+i*(iw+gap),y+hh+9.2);
+        font('Inter','normal',7.5,C.grey);txt(`klatka z ${c.t.toFixed(1)} s ${r.source==='file'?'filmu':'pomiaru'}${c.priv?' · tło rozmyte (prywatność)':''}`,M+i*(iw+gap),y+hh+9.2);
       });
       y+=hh+16;
     } else { font('Inter','normal',9,C.grey);txt('Brak zarejestrowanych klatek z sylwetką.',M,y+4);y+=12 }
@@ -1391,6 +1498,8 @@ $('v-seek').addEventListener('input',e=>{seeking=true;vSeekTo(e.target.value/100
 ['timeupdate','play','pause','seeked','ratechange','ended'].forEach(ev=>video.addEventListener(ev,()=>{if(S.source==='file')syncVctl()}));
 video.addEventListener('ended',()=>{ if(S.source==='file'&&S.rec){ stopRecording(); toast('Film się skończył – pomiar zakończony automatycznie.') } });
 $('chk-mirror').onchange=()=>{S.mirror=effMirror()};
+$('chk-priv').onchange=e=>setPrivacy(e.target.checked); $('s-priv').onclick=()=>setPrivacy(!S.priv);
+$('chk-priv').checked=S.priv; $('s-priv').setAttribute('aria-pressed',S.priv);
 $('chk-skel').onchange=e=>S.skel=e.target.checked; $('chk-labels').onchange=e=>S.labels=e.target.checked;
 $('sel-cam').onchange=()=>{if(S.running&&S.source==='camera')startCamera()};
 $('sel-res').onchange=()=>{if(S.running&&S.source==='camera')startCamera()};
@@ -1412,7 +1521,7 @@ let rzT; const onResize=()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(S.running&
 window.addEventListener('resize',onResize); screen.orientation?.addEventListener?.('change',onResize); window.addEventListener('orientationchange',onResize);
 window.addEventListener('pagehide',releaseWake);
 window.addEventListener('beforeunload',()=>S.stream?.getTracks().forEach(t=>t.stop()));
-window.__bikerc=S; // pomocnicze do testów
+window.__bikerc=S; window.__priv=PRIV; // pomocnicze do testów
 </script>
 </body>
 </html>

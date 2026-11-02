@@ -38,6 +38,10 @@ Po zakończeniu pomiaru aktywuje się przycisk **📄 Raport PDF** (karta „Eks
 
 Biblioteki: `jspdf@2.5.2` z CDN (jsDelivr), fallback lokalny `assets/vendor/jspdf.umd.min.js`; czcionki Inter i Archivo (podzbiór z polskimi znakami, base64) w `assets/vendor/report-fonts.js`. Przykład: `sample/przykladowy-raport.pdf` (pomiar testowy z nagrania przysiadu, nie kolarstwa).
 
+## Prywatność – rozmyte tło
+
+Domyślnie **włączone** (przełącznik „🔒 Prywatność: rozmyj tło” w ustawieniach oraz przycisk 🔒 na podglądzie; wybór zapamiętywany w `localStorage`, klucz `bikerc.privacy.v1`). Model PoseLandmarker zwraca maskę segmentacji; sylwetka + rower (maska rozszerzona, „gruby szkielet” z landmarków i strefa roweru) zostają ostre, reszta kadru jest mocno rozmywana. Rozmycie jest nakładane w płótnie podglądu, więc obejmuje też zrzuty, nagrania (klatki raportu) i obrazy w PDF. Gdy brak ważnej maski (utrata pozy > 0,7 s, przewinięcie filmu) rozmywany jest cały kadr. Kąty i pomiary się nie zmieniają (liczone z surowej klatki). Przetwarzanie lokalne – nic nie jest wysyłane.
+
 ## Trener głosowy (w tle)
 
 Aplikacja mówi po polsku (Web Speech API, głos pl-PL, a gdy go brak – dowolny dostępny), więc nie trzeba patrzeć w ekran:
@@ -88,3 +92,5 @@ cloudflared tunnel --url http://localhost:8765     # wypisze https://xxxx.tryclo
 ### Testy
 
 `python3 tests/test_mobile.py http://localhost:8765/index.html` – emulacja Pixel 7 i iPhone 13 (pion/poziom), kamera testowa, PDF, PWA offline, komunikat o HTTPS.
+
+`python3 tests/test_privacy.py http://localhost:8765/index.html [chromium|webkit]` – tryb prywatności (kamera testowa, film z pliku, zrzut, PDF, fail-closed; `NOFILTER=1` symuluje Safari bez `ctx.filter`). Film testowy: `FAKE_VIDEO`/`FILE_VIDEO`.
